@@ -1,5 +1,6 @@
 <?php
-    include_once('Steam.php');
+    include_once('steam.php');
+
     class Admin {
         public $adminID = -1;
         public $adminGroupID = -1;

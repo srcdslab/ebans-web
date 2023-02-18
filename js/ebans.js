@@ -151,7 +151,7 @@ function setActive(num) {
 }
 
 function Login() {
-    window.location.replace('src/login-init.php');
+    window.location.replace('login-init.php');
 }
 
 $(function() {

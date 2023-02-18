@@ -95,7 +95,7 @@
             <a class="button button-important" href='logout.php'><i class='fas fa-sign-out-alt'></i>
                 Logout</a></p>
             <?php } else { ?>
-            <a class="button button-success" href='src/login-init.php'>Existing user? Sign In</a>
+            <a class="button button-success" href='login-init.php'>Existing user? Sign In</a>
             <?php } ?>
         </div>
     </div>

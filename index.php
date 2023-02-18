@@ -1,5 +1,5 @@
 <?php
-    include('src/header.php');
+    include('header.php');
 
     if(!isset($_GET['all']) && !isset($_GET['active']) && !isset($_GET['expired'])) {
         echo "<script>window.location.replace('index.php?all');</script>";
@@ -238,7 +238,7 @@
                 </div>
             </div>
         </div>
-        <?php include('src/footer.php'); ?>
+        <?php include('footer.php'); ?>
     </div>
 </body>
 <script>

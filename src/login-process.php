@@ -57,6 +57,7 @@
         setcookie('steamID', $steamID32, (time() * 30));
     }
 
-    header("Location: index.php?all");
+    $server_host_url = (!empty($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+    header("Location: ". $server_host_url);
     die();
 ?>

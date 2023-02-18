@@ -1,9 +1,10 @@
 <?php
+    $server_host_url = (!empty($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
     $login_url_params = [
         'openid.ns'         => 'http://specs.openid.net/auth/2.0',
         'openid.mode'       => 'checkid_setup',
-        'openid.return_to'  => 'http://localhost:3000/Eban_website/login-process.php',
-        'openid.realm'      => (!empty($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'],
+        'openid.return_to'  => $server_host_url . '/src/login-process.php',
+        'openid.realm'      => $server_host_url,
         'openid.identity'   => 'http://specs.openid.net/auth/2.0/identifier_select',
         'openid.claimed_id' => 'http://specs.openid.net/auth/2.0/identifier_select',
     ];

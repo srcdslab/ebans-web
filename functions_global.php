@@ -1,6 +1,5 @@
 <?php
     include_once('steam.php');
-
     class Admin {
         public $adminID = -1;
         public $adminGroupID = -1;
@@ -160,10 +159,9 @@
                 return false;
             }
 
-            $adminID = $admin->adminID;
             $resultsC = $this->getEbanInfoFromID($id);
             $playerName = $resultsC['client_name'];
-            $playerSteamID = $resultsC['client_stemaid'];
+            $playerSteamID = $resultsC['client_steamid'];
             $length = $resultsC['duration'];
             $reason = $resultsC['reason'];
             $isExpired = ($resultsC['admin_steamid_unban'] == "SERVER" && $resultsC['timestamp_issued'] < time()) ? true : false;
@@ -190,7 +188,7 @@
             $sql .= "VALUES ('$message', '$adminName', '$adminSteamID', '$playerName', '$playerSteamID', $time)";
             $GLOBALS['DB']->query($sql);
 
-            echo "<script>showEbanWindowInfo(3, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$length minutes\");</script>";
+            echo "<script>showEbanWindowInfo(3, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$length minutes\", $id);</script>";
             //echo "<script>window.location.replace('index.php?all');</script>";
         }
 

@@ -68,7 +68,6 @@
 	}
 
     echo "<script>setActive($pageActiveNum); setModalSearch(\"$pageType\");</script>";
-
 ?>
 
 <!DOCTYPE html>
@@ -99,13 +98,13 @@
             </div>
             <div class="container-box1">
                 <div class="order1">
-                    <p>&nbsp Total Ebans: <?php echo $resultsCount; ?></p>
+                    <p id="totalText" results=<?php echo "$resultsCount";?>>&nbsp Total Ebans: <?php echo $resultsCount; ?></p>
                 </div>
                 <div class="order2">
                     <?php
                         $resultsEnd = $resultsStart + $resultsRealCount;
                     ?>
-                    <p>displaying <?php echo "$resultsStart - $resultsEnd"; ?> of <?php echo $resultsCount; ?> results |
+                    <p id="displaying-text" results=<?php echo "$resultsStart"; ?> totalresults=<?php echo "$resultsEnd" ?>>displaying <?php echo "$resultsStart - $resultsEnd"; ?> of <?php echo $resultsCount; ?> results |
                     <?php
                         $nextPage = $currentPage + 1;
                         $previousPage = $currentPage - 1;
@@ -209,11 +208,11 @@
                                         $dateB = $dateA->format("Y-m-d h:i:s");
                                         echo "<tr class='$class' id-data='$id' id='diva-tr-$id'>";
                                         
-                                        echo "<td style='background-color: transparent; align-items: center;'><img src='images/games/csource.png' border='0' align='absmiddle' alt='css'></td>";
+                                        echo "<td style='background-color: transparent; align-items: center;'><img src='./images/games/csource.png' border='0' align='absmiddle' alt='css'></td>";
                                         echo "<td>$dateB</td>";
                                         echo "<td>$clientName</td>";
                                         if($count >= 2) {
-                                            echo "<td style='color: var(--theme-text); font-weight: bold; padding: 0;'>$count <i class='fa-solid fa-ban'></i></td>";
+                                            echo "<td style='color: var(--theme-text); font-weight: bold; padding: 0;' class='count' id='$id-count' count='$count' steamid='$clientSteamID'>$count <i class='fa-solid fa-ban'></i></td>";
                                         } else {
                                             echo "<td></td>";
                                         }

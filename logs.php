@@ -33,18 +33,11 @@
     $resultsStart = (($currentPage - 1) * $resultsPerPage);
 
     $sql = "SELECT * FROM ";
-    $sql .= "`logs`";
+    $sql .= "`web_logs`";
 
     if(isset($_GET['s'])) {
         $input = $_GET['s'];
         $method = formatMethod(intval($_GET['m']));
-
-        if($method == 'admin_name') {
-            $method = "aid";
-            $adminID = (new Admin())->GetAdminIDFromName($input);
-            $input = $adminID;
-        }
-
         $sql .= " WHERE `$method`=$input ";
     }
 
@@ -63,7 +56,7 @@
 <!DOCTYPE html>
 <html>
     <?php
-    $query = $GLOBALS['DB']->query($sql . "ORDER BY created DESC LIMIT $resultsStart, $resultsPerPage");
+    $query = $GLOBALS['DB']->query($sql . "ORDER BY time_stamp DESC LIMIT $resultsStart, $resultsPerPage");
     $results1 = $query->fetch_all(MYSQLI_ASSOC);
     $resultsRealCount = $query->num_rows;
     $query->free();
@@ -75,14 +68,14 @@
     ?>
     <div class="container">
         <div class="container-header">
-			<h1><i class="fa-regular fa-hard-drive"></i> Web Logs</h1>
+			<h1><i class="fa-regular fa-hard-drive"></i>Web Logs</h1>
             </div>
 			<div class="breadcrumb">
 <i class="fas fa-angle-right"></i> <a href="index.php?all">Home</a>
 <i class="fas fa-angle-right"></i> <a href="logs.php?web">Web Logs</a>
 </div>
         <div class="container-search">
-            <div class="search-button search-modal-btn-open" id="search-button" data-page=<?php echo "\"web\""; ?>>
+            <div class="search-button search-modal-btn-open" id="search-button" data-page="web">
                 <p><strong>Advanced Search (Click)</strong></p>
             </div>
         </div>
@@ -130,10 +123,9 @@
                         <thead>
                             <tr>
                                 <th style="width: 15%;">Date</th>
-                                <th style="width: 15%;">Admin</th>
-                                <th style="width: 15%;">Host</th>
-                                <th style="width: 10%;">Action</th>
-                                <th>Message</th>
+                                <th style="width: 25%;">Player</th>
+                                <th style="width: 25%;">Admin</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -141,13 +133,13 @@
                                 $admin = new Admin();
                                 $date = new DateTime("now", new DateTimeZone("GMT+1"));
                                 foreach($results1 as $result1) {
-                                    $aid                = $result1['aid'];
-                                    $action             = $result1['title'];
-                                    $host               = $result1['host'];
+                                    $clientName         = $result1['client_name'];
+                                    $clientSteamID      = $result1['client_steamid'];
+                                    $adminSteamID       = $result1['admin_steamid'];
                                     $message            = $result1['message'];
-                                    $time_stamp         = $result1['created'];
+                                    $time_stamp         = $result1['time_stamp'];
                                     
-                                    $adminName = $admin->GetAdminNameFromID($aid);
+                                    $adminName = $admin->GetAdminNameFromSteamID($adminSteamID);
 
 
                                     $date->setTimestamp($time_stamp);
@@ -155,9 +147,8 @@
 
                                     echo "<tr class='row-expired'>";
                                     echo "<td>$dateFormated</td>";
-                                    echo "<td>$adminName</a></td>";
-                                    echo "<td>$host</td>";
-                                    echo "<td>$action</td>";
+                                    echo "<td>$clientName ($clientSteamID)</a></td>";
+                                    echo "<td>$adminName</td>";
                                     echo "<td>$message</td>";
                                     echo "</tr>";
                                 }
@@ -168,16 +159,5 @@
         </div>
     </div>
 </div>
-<script>
-    $(function() {
-        $('.select_').on('change', function() {
-            let value = $(this).val();
-            let href = $(this).attr('data-href');
-            href += '&page='+value;
-            window.location.replace(href);
-        });
-    });
-    
-</script>
 <?php include('footer.php'); ?>
 </div>

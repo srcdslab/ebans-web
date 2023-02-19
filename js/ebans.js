@@ -181,7 +181,7 @@ window.addEventListener('click', function(e) {
     }
 });
 
-function showEbanWindowInfo(type, playerName = "", playerSteamID = "", reason = "", length = "") {
+function showEbanWindowInfo(type, playerName = "", playerSteamID = "", reason = "", length = "", id = 0) {
     /* type values: 0 = Add Eban, 1 = Edit Eban, 2 = Unban Eban, 3 = Delete Eban */
     const titles = [
         "Eban Added",
@@ -238,9 +238,74 @@ function showEbanWindowInfo(type, playerName = "", playerSteamID = "", reason = 
         html += "</li>";
     }
 
+    if(type == 3) {
+        let diva = '#diva-'+id;
+        $(diva+'-tr').hide();
+
+        let totalResults = $('#totalText').attr('results');
+        let totalHtml = $('#totalText').html();
+
+        let totalResultsAfter = totalResults - 1;
+        let totalResultsString = totalResults.toString();
+        let totalResultsAfterString = totalResultsAfter.toString();
+
+        let newTotalHtml = totalHtml.replace(totalResultsString, totalResultsAfterString);
+        $('#totalText').attr('results', totalResultsAfter);
+        $('#totalText').html(newTotalHtml);
+
+        let startResults = $('#displaying-text').attr('results');
+        let endResults = $('#displaying-text').attr('totalresults');
+        let displayHtml = $('#displaying-text').html();
+
+        let startResultsString = startResults.toString();
+        let startResultsAfter = 0;
+
+        if(startResults != 0) {
+            startResultsAfter = startResults - 1;
+        }
+
+        let startResultsAfterString = startResultsAfter.toString();
+
+        let endResultsString = endResults.toString();
+        let endResultsAfter = endResults - 1;
+        let endResultsAfterString = endResultsAfter.toString();
+
+        $('#displaying-text').attr('results', startResultsAfter);
+        $('#displaying-text').attr('totalresults', endResultsAfter);
+
+        let newDisplayHtml = "";
+        if(startResults == endResults) {
+            let first = displayHtml.replace('-'+' '+totalResultsString, '-'+' '+totalResultsAfterString);
+            newDisplayHtml = first.replace(startResultsString, startResultsAfterString);
+        } else {
+            let first = displayHtml.replace(startResultsString, startResultsAfterString);
+            let second = first.replace('-'+' '+totalResultsString, '-'+' '+totalResultsAfterString);
+            newDisplayHtml = second.replace(endResultsString, endResultsAfterString);
+        }
+
+        $('#displaying-text').html(newDisplayHtml);
+        
+        let count = $('#'+id+'-count').attr('count');
+        let newCountHtml = count - 1;
+
+        var allCounts = document.getElementsByClassName('count');
+        for(var i = 0; i < allCounts.length; i++) {
+            let steamID = $('#'+allCounts[i].id).attr('steamid');
+            if(steamID == playerSteamID) {
+                $('#'+allCounts[i].id).attr('count', newCountHtml);
+                let Html = $('#'+allCounts[i].id).html();
+                let newHtml = Html.replace(count.toString(), newCountHtml.toString());
+                $('#'+allCounts[i].id).html(newHtml);
+            }
+        }
+    }
+
     $('.Eban-action-window .info .Eban_details').html(html);
 
     $('.Eban-action-window').css('display', 'block');
+
+    let sec = 5;
+    setTimeout(CloseWindow, (sec * 1000)); 
 }
 
 function CloseWindow() {

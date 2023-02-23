@@ -239,8 +239,11 @@ function showEbanWindowInfo(type, playerName = "", playerSteamID = "", reason = 
     }
 
     if(type == 3) {
-        let diva = '#diva-'+id;
-        $(diva+'-tr').hide();
+        let diva1 = '#diva-'+id;
+        $(diva1+'-tr').hide();
+
+        let diva2 = '#diva-tr-'+id;
+        $(diva2).hide();
 
         let totalResults = $('#totalText').attr('results');
         let totalHtml = $('#totalText').html();

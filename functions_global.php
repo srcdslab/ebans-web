@@ -79,6 +79,10 @@
         }
 
         public function GetAdminNameFromSteamID($steamID) {
+            if(!str_contains($steamID, "STEAM")) {
+                return "Console";
+            }
+            
             $sql = "SELECT * FROM `sb_admins` WHERE `authid`='$steamID'";
             $query = $GLOBALS['SBPP']->query($sql);
             $results = $query->fetch_all(MYSQLI_ASSOC);

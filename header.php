@@ -2,8 +2,10 @@
     include_once('connect.php'); 
     include_once('functions_global.php');
 
+    $ip = filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP) ? $_SERVER['REMOTE_ADDR'] : '';
+
     $GLOBALS['steamID'] = "";
-    if(isset($_COOKIE['steamID'])) {
+    if(isset($_COOKIE['steamID']) && isset($_COOKIE['secret_key']) && $_COOKIE['secret_key'] === $GLOBALS['SECRET_KEY']) {
         $GLOBALS['steamID'] = $_COOKIE['steamID'];
         $admin = new Admin();
         $admin->UpdateAdminInfo($_COOKIE['steamID']);
@@ -12,15 +14,19 @@
         $steam = new Steam();
         $steamID64 = $steam->SteamID_To_SteamID64($GLOBALS['steamID']);
         $adminURL = "https://steamcommunity.com/profiles/$steamID64";
-    }
+    } else {
+		setcookie("steamID", "", 1, "/", $_SERVER['SERVER_NAME'], true, true);
+		setcookie("secret_key", "", 1, "/", $_SERVER['SERVER_NAME'], true, true);
+		setcookie("aid", "", 1, "/", $_SERVER['SERVER_NAME'], true, true);
+	}
 ?>
 
 <head>
     <title>EntWatch Bans</title>
-    <link rel="icon" href="images/favicon.ico" />
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="./images/favicon.ico" />
+    <link rel="stylesheet" href="./css/style.css">
     <link href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,700,700i" rel="stylesheet" referrerpolicy="origin">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/3.0.0/mustache.js"></script>
@@ -58,17 +64,10 @@
                 <div class='input-group'>
                     <label for='m'>Method</label>
                     <select name='m' class='select search-modal-input'>
-                        <?php 
-                        if(!isset($_GET['web'])) { ?>
-                            <option value='1'>Player SteamID</option>
-                            <option value='2'>Player Name</option>
-                        <?php } ?>
-                        
+                        <option value='1'>Player SteamID</option>
+                        <option value='2'>Player Name</option>
                         <option value='4'>Admin Name</option>
-                        <?php
-                        if(!isset($_GET['web'])) { ?>
-                            <option value='5'>Admin SteamID</option>
-                        <?php } ?>
+                        <option value='5'>Admin SteamID</option>
                     </select>
                 </div>
                 <button type='submit' class='button button-primary Eban-form-button' style='width: 90%; margin-left: 5%;'><i class='fa-solid fa-magnifying-glass'></i> Search</button>
@@ -78,9 +77,7 @@
 <header>
     <div class="header1">
         <div class="header1-icons">
-            <?php
-				echo '<a id="steam_group" target="_blank" href="'. $GLOBALS['STEAM_GROUP'] .'" rel="noopener" title="Our Steam Group">'
-			?>
+            <?php echo '<a id="steam_group" target="_blank" href="'. $GLOBALS['STEAM_GROUP'] .'" rel="noopener" title="Our Steam Group">' ?>
                 <i class="fab fa-steam-symbol"></i>
             </a>
             <a id="discord" target="_blank" href="https://discord.gg/XhByCBg" rel="noopener" data-ipstooltip="" _title="Join us on Discord">
@@ -103,8 +100,7 @@
         <?php
 			echo '<a class="logo" href="'. $GLOBALS['SERVER_FORUM_URL'] .'">'
         ?>
-            <img src="images/banner.png" alt="logo">
-        </a>
+		<img src="./images/ebans.png" alt="logo"></a>
         <div class="search_input">
             <form method="GET" action="index.php">
                 <input type='text' style='display: none;' name='all' value='true'>

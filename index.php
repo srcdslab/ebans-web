@@ -55,17 +55,17 @@
     $pageActiveNum = 2;
     if($pageType == "all") {
         $pageActiveNum = 0;
-		$pageName = "Eban List";
-		$icon = "<i class='fa-solid fa-house'></i>";
+        $pageName = "Eban List";
+        $icon = "<i class='fa-solid fa-house'></i>";
     } else if($pageType == "active") {
         $pageActiveNum = 1;
-		$pageName = "Active Eban";
-		$icon = "<i class='fa-solid fa-hourglass-half'></i>";
+        $pageName = "Active Eban";
+        $icon = "<i class='fa-solid fa-hourglass-half'></i>";
     } else if($pageType == "expired") {
-		$pageActiveNum = 2;
-		$pageName = "Expired Eban";
-		$icon = "<i class='fa-solid fa-hourglass-end'></i>";
-	}
+        $pageActiveNum = 2;
+        $pageName = "Expired Eban";
+        $icon = "<i class='fa-solid fa-hourglass-end'></i>";
+    }
 
     echo "<script>setActive($pageActiveNum); setModalSearch(\"$pageType\");</script>";
 ?>
@@ -87,7 +87,7 @@
             <div class="container-header">
                 <h1><?php echo "$icon $pageName"; ?></h1>
             </div>
-			<div class="breadcrumb">
+            <div class="breadcrumb">
 <i class="fas fa-angle-right"></i> <a href="index.php?all">Home</a>
 <i class="fas fa-angle-right"></i> <a href="index.php?all"><?php echo "$pageName"; ?></a>
 </div>
@@ -152,7 +152,7 @@
                                 <?php
                                     $Eban = new Eban();
                                     $admin = new Admin();
-                                    $dateA = new DateTime("now", new DateTimeZone("GMT+1"));
+                                    $dateA = new DateTime("now", new DateTimeZone(DATE_TIME_ZONE));
                                     foreach($results1 as $result1) {
                                         $id                 = $result1['id'];
                                         $clientName         = $result1['client_name'];
@@ -205,12 +205,16 @@
                                         $count = $Eban->GetEbansNumber($clientSteamID);
 
                                         $dateA->setTimestamp(($timestamp_issued - ($duration * 60)));
-                                        $dateB = $dateA->format("Y-m-d h:i:s");
+                                        $dateB = $dateA->format(DATE_TIME_FORMAT);
                                         echo "<tr class='$class' id-data='$id' id='diva-tr-$id'>";
                                         
                                         echo "<td style='background-color: transparent; align-items: center;'><img src='./images/games/csource.png' border='0' align='absmiddle' alt='css'></td>";
                                         echo "<td>$dateB</td>";
-                                        echo "<td>$clientName</td>";
+                                        if(empty($clientName)) {
+                                            echo "<td><i>No nickname present</i></td>";
+                                        } else {
+                                            echo "<td>$clientName</td>";
+                                        }
                                         if($count >= 2) {
                                             echo "<td style='color: var(--theme-text); font-weight: bold; padding: 0;' class='count' id='$id-count' count='$count' steamid='$clientSteamID'>$count <i class='fa-solid fa-ban'></i></td>";
                                         } else {

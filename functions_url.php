@@ -167,7 +167,7 @@
         }
 
         $timestamp_issued = (($info['timestamp_issued'] - ($info['duration'] * 60)) + $length);
-        if($timestamp_issued < time()) {
+        if ($length > 0 && $timestamp_issued < time()) {
             echo "<p>$icon Invalid Duration! Expected a duration that will last in the future but got a one that has already ended.</p>";
             die();
         }

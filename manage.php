@@ -30,14 +30,19 @@
         $info = $Eban->getEbanInfoFromID(intval($oldid));
 
         $timestamp_issued = $info['timestamp_issued'];
-        if($timestamp_issued >= 1 && time() > $timestamp_issued) {
-            echo "<div class='container'>
-            <div class='error-box'>
-            <p><i class='fa-solid fa-triangle-exclamation'></i> Cannot edit an old Eban!</p>
-            </div>
-            </div>
-            </div>";
-            die();
+        $duration = $info['duration'];
+        if ($duration == 0) {
+            // Do nothing
+        } else {
+            if ($timestamp_issued >= 1 && time() > $timestamp_issued) {
+                echo "<div class='container'>
+                <div class='error-box'>
+                <p><i class='fa-solid fa-triangle-exclamation'></i> Cannot edit an old Eban!</p>
+                </div>
+                </div>
+                </div>";
+                die();
+            }
         }
     }
 
@@ -57,12 +62,12 @@
     $text = ($edit == true) ? "Edit Eban" : "Add Eban";
     $formHeader = ($edit == true) ? "<i class='fa-regular fa-pen-to-square'></i>" : "<i class='fas fa-user-times'></i>";
     $formHeader .= " $text";
-	$icon = ($edit == false) ? "<i class='fas fa-user-times'></i>" : "<i class='fa-regular fa-pen-to-square'></i>";
+    $icon = ($edit == false) ? "<i class='fas fa-user-times'></i>" : "<i class='fa-regular fa-pen-to-square'></i>";
     ?>
     <div class="container">
         <div class="container-header">
-			<h1><?php echo "$icon $text"; ?></h1>
-			<div class="breadcrumb">
+            <h1><?php echo "$icon $text"; ?></h1>
+            <div class="breadcrumb">
 <i class="fas fa-angle-right"></i> <a href="index.php?all">Home</a>
 <i class="fas fa-angle-right"></i> <a href="manage.php?add"><?php echo $text ?></a>
 </div>
@@ -139,6 +144,7 @@
                 ?>
                 <div class="input-group">
                     <label for="length"> Duration </label>
+                    <p style="font-style: italic; color: var(--theme-text_light); margin-top: 5px;">Enter 0 minutes for a permanent ban</p>
                     <input id="length-edit" type="text" class="input Eban-input" value=<?php echo "\"$val\""; ?>style="width: 110px; display: inline-block;">
                     <?php GetEbanLengthTypes(); ?>
                 </div>
@@ -146,7 +152,7 @@
 
                 <?php
                 $buttonID = ($edit == false) ? "add-button" : "edit-button";
-				$buttonTextValidate = ($edit == false) ? "Add Eban" : "Save Changes";
+                $buttonTextValidate = ($edit == false) ? "Add Eban" : "Save Changes";
                 if(!isset($_GET['oldid'])) {
                     $oldid = "";
                 }

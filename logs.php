@@ -68,9 +68,9 @@
     ?>
     <div class="container">
         <div class="container-header">
-			<h1><i class="fa-regular fa-hard-drive"></i>Web Logs</h1>
+            <h1><i class="fa-regular fa-hard-drive"></i>Web Logs</h1>
             </div>
-			<div class="breadcrumb">
+            <div class="breadcrumb">
 <i class="fas fa-angle-right"></i> <a href="index.php?all">Home</a>
 <i class="fas fa-angle-right"></i> <a href="logs.php?web">Web Logs</a>
 </div>
@@ -131,7 +131,7 @@
                         <tbody>
                             <?php
                                 $admin = new Admin();
-                                $date = new DateTime("now", new DateTimeZone("GMT+1"));
+                                $date = new DateTime("now", new DateTimeZone(DATE_TIME_ZONE));
                                 foreach($results1 as $result1) {
                                     $clientName         = $result1['client_name'];
                                     $clientSteamID      = $result1['client_steamid'];
@@ -143,11 +143,15 @@
 
 
                                     $date->setTimestamp($time_stamp);
-                                    $dateFormated = $date->format("Y-m-d h:i:s");
+                                    $dateFormated = $date->format(DATE_TIME_FORMAT);
 
                                     echo "<tr class='row-expired'>";
                                     echo "<td>$dateFormated</td>";
-                                    echo "<td>$clientName ($clientSteamID)</a></td>";
+                                    if(empty($clientName)) {
+                                        echo "<td><i>No nickname present</i> ($clientSteamID)</a></td>";
+                                    } else {
+                                        echo "<td>$clientName ($clientSteamID)</a></td>";
+                                    }
                                     echo "<td>$adminName</td>";
                                     echo "<td>$message</td>";
                                     echo "</tr>";
@@ -161,3 +165,13 @@
 </div>
 <?php include('footer.php'); ?>
 </div>
+<script>
+    $(function() {
+        $('.select_').on('change', function() {
+            let value = $(this).val();
+            let href = $(this).attr('data-href');
+            href += '&page='+value;
+            window.location.replace(href);
+        });
+    });
+</script>

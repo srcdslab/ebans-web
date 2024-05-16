@@ -5,94 +5,113 @@
         public $adminGroupID = -1;
         public $adminSteamID = "";
         public $adminUser = "";
-        public $adminPassword = "";
-
-        public function GetAdminIDFromName($name) {
+        
+        public function getAdminIDFromName($name) {
+            $name = $GLOBALS['SBPP']->real_escape_string($name);
             $query = "SELECT `aid` FROM `sb_admins` WHERE `user` LIKE '%$name%'";
             $queryHndl = $GLOBALS['SBPP']->query($query);
-            $resultsD = $queryHndl->fetch_all(MYSQLI_ASSOC);
-            foreach($resultsD as $result) {
-                $queryHndl->free();
-                return $result['aid'];
-            }
 
-            $queryHndl->free();
-            return -1;
-        }
-
-        public function GetAdminNameFromID($id) {
-            $query = "SELECT `user` FROM `sb_admins` WHERE `aid`=$id";
-            $queryHndl = $GLOBALS['SBPP']->query($query);
-            $resultsD = $queryHndl->fetch_all(MYSQLI_ASSOC);
-            foreach($resultsD as $result) {
-                $queryHndl->free();
-                return $result['user'];
-            }
-
-            $queryHndl->free();
-            return "Deleted Admin";
-        }
-        
-        public function IsLoginValid($steamID) {
-            if($steamID == "") {
-                return false;
-            }
-
-            $sql = "SELECT * FROM `sb_admins` WHERE `authid`='$steamID'";
-            $query = $GLOBALS['SBPP']->query($sql);
-            $resultsAAA = $query->fetch_all(MYSQLI_ASSOC);
-            if($query->num_rows <= 0) {
-                $query->free();
-                return false;
-            } else {
-                $query->free();
-
-                $groups = array(0, 1, 3, 4, 5);
-                foreach($resultsAAA as $result) {
-                    $gid = $result['gid'];
-                    if(!in_array($gid, $groups)) {
-                        return false;
-                    }
+            if ($queryHndl) {
+                $result = $queryHndl->fetch_assoc();
+                $queryHndl->free_result();
+                if ($result) {
+                    return $result['aid'];
                 }
-
-                return true;
-            }
-        }
-
-        public function UpdateAdminInfo($steamID) {
-            if(!$this->IsLoginValid($steamID)) {
-                return false;
+            } else {
+                die(); // Database error
             }
 
-            $sql = "SELECT * FROM `sb_admins` WHERE `authid`='$steamID'";
-            $query = $GLOBALS['SBPP']->query($sql);
-            $results = $query->fetch_all(MYSQLI_ASSOC);
-            $query->free();
-
-            foreach($results as $result) {
-                $this->adminID          = $result['aid'];
-                $this->adminGroupID     = $result['gid'];
-                $this->adminSteamID     = $result['authid'];
-                $this->adminUser        = $result['user'];
-                return true;
-            }
+            return -1; // No matching admin found
         }
 
         public function GetAdminNameFromSteamID($steamID) {
-            if(!str_contains($steamID, "STEAM")) {
-                return "Console";
+            if (!str_contains($steamID, "STEAM")) {
+                return "CONSOLE";
             }
-            
-            $sql = "SELECT * FROM `sb_admins` WHERE `authid`='$steamID'";
-            $query = $GLOBALS['SBPP']->query($sql);
-            $results = $query->fetch_all(MYSQLI_ASSOC);
-            $query->free();
 
-            foreach($results as $result) {
+            $sql = "SELECT * FROM `sb_admins` WHERE `authid`=?";
+            $stmt = $GLOBALS['SBPP']->prepare($sql);
+            $stmt->bind_param("s", $steamID);
+            $stmt->execute();
+            $queryResult = $stmt->get_result();
+            $stmt->close();
+
+            $results = $queryResult->fetch_all(MYSQLI_ASSOC);
+            foreach ($results as $result) {
                 return $result['user'];
             }
 
-            return "Deleted Admin";
+            return "<i>Admin Deleted</i>";
+    }
+        
+        public function IsLoginValid($steamID, $secret_key, $bInitialVerification) {
+         if (empty($steamID) || empty($secret_key) || $secret_key !== $GLOBALS['SECRET_KEY']) {
+            return false;
+        }
+
+        $sql = "SELECT aid FROM sb_admins WHERE authid = ?";
+        $stmt = $GLOBALS['SBPP']->prepare($sql);
+        $stmt->bind_param("s", $steamID);
+        $stmt->execute();
+        $queryResult = $stmt->get_result();
+        $stmt->close();
+
+        $row = $queryResult->fetch_assoc();
+        $sbppaid = $row['aid'];
+
+        if (!$bInitialVerification && $sbppaid != $_COOKIE['aid']) {
+            return false;
+        }
+
+        $sql = "SELECT * FROM `sb_admins` WHERE `authid`=?";
+        $stmt = $GLOBALS['SBPP']->prepare($sql);
+        $stmt->bind_param("s", $steamID);
+        $stmt->execute();
+        $queryResult = $stmt->get_result();
+        $stmt->close();
+
+        if ($queryResult->num_rows <= 0) {
+            return false;
+        }
+
+        $acceptableGroups = array_merge(GID_STAFF, GID_ADMIN);
+        $resultsAAA = $queryResult->fetch_all(MYSQLI_ASSOC);
+        foreach ($resultsAAA as $result) {
+            $gid = $result['gid'];
+            if (!in_array($gid, $acceptableGroups) || $gid == -1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+        public function UpdateAdminInfo($steamID) {
+            $secret_key = $_COOKIE['secret_key'];
+            if (!$this->IsLoginValid($steamID, $secret_key, false)) {
+                return false;
+            }
+
+            $sql = "SELECT `aid`, `gid`, `authid`, `user` FROM `sb_admins` WHERE `authid`=?";
+            $stmt = $GLOBALS['SBPP']->prepare($sql);
+            $stmt->bind_param("s", $steamID);
+            $stmt->execute();
+            $queryResult = $stmt->get_result();
+
+            if ($queryResult->num_rows <= 0) {
+                $stmt->close();
+                return false;
+            }
+
+            $result = $queryResult->fetch_assoc();
+            $stmt->close();
+
+            $this->adminID = $result['aid'];
+            $this->adminGroupID = $result['gid'];
+            $this->adminSteamID = $result['authid'];
+            $this->adminUser = $result['user'];
+
+            return true;
         }
 
         public function DoesHaveFullAccess() {
@@ -311,15 +330,13 @@
                 die();
             }
 
-            $serverName = $GLOBALS["SERVER_NAME"];
-
             $sql = "INSERT INTO `EntWatch_Current_Eban` (";
-			$sql .=	"`client_name`, `client_steamid`,";
-			$sql .=	"`admin_name`, `admin_steamid`, `reason`,";
-			$sql .=	"`duration`, `timestamp_issued`, `server`)";
-			$sql .= "VALUES (";
+            $sql .=	"`client_name`, `client_steamid`,";
+            $sql .=	"`admin_name`, `admin_steamid`, `reason`,";
+            $sql .=	"`duration`, `timestamp_issued`, `server`)";
+            $sql .= "VALUES (";
             $sql .= "'$playerName', '$playerSteamID', '$adminName', '$adminSteamID',";
-            $sql .= "'$reason', $lengthInMinutes, $timestamp_issued, '$serverName')";
+            $sql .= "'$reason', $lengthInMinutes, $timestamp_issued, 'NIDE')";
 
             $GLOBALS['DB']->query($sql);
 
@@ -411,9 +428,18 @@
         }
 
         public function IsSteamIDAlreadyBanned($steamID) {
-            $queryB = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Current_Eban` WHERE `client_steamid`='$steamID'");
-            if($queryB->num_rows >= 1) {
-                return true;
+            $query = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Current_Eban` WHERE `client_steamid`='$steamID'");
+            $results = $query->fetch_all(MYSQLI_ASSOC);
+            $query->free();
+
+            foreach ($results as $result) {
+                $isActive = ($result['is_expired'] == 0 && $result['is_removed'] == 0);
+                $isPermanent = ($result['time_stamp_end'] <= 0);
+                $isExpired = !$isPermanent && (time() >= $result['time_stamp_end']);
+
+                if ($isActive && ($isPermanent || !$isExpired)) {
+                    return true; // Early return when a matching active ban is found
+                }
             }
 
             return false;
@@ -426,9 +452,10 @@
         }
 
         $steamID = $_COOKIE['steamID'];
+        $secret_key = $_COOKIE['secret_key'];
 
         $admin = new Admin();
-        if($admin->IsLoginValid($steamID)) {
+        if($admin->IsLoginValid($steamID, $secret_key, false)) {
             return true;
         }
 
@@ -436,27 +463,8 @@
     }
 
     function formatMethod(int $method) {
-        if($method <= 0) {
-            return "";
-        }
-
-        switch($method) {
-            case 1: {
-                return "client_steamid";
-            }
-
-            case 2: {
-                return "client_name";
-            }
-
-            case 4: {
-                return "admin_name";
-            }
-
-            default: {
-                return "admin_steamid";
-            }
-        }
+    $methods = ["", "client_steamid", "client_name", "", "admin_name", "admin_steamid"];
+    return $methods[$method];
     }
 
     function GetRowInfo($id, $result2 = null) {
@@ -511,10 +519,10 @@
         if(IsAdminLoggedIn()) {
             $admin->UpdateAdminInfo($_COOKIE['steamID']);
 
-            if(($timestamp_issued < 1 && $isRemoved == false && $isExpired == false) || ($timestamp_issued >= 1 && time() < $timestamp_issued && $isRemoved == false && $isExpired == false)) {
+            if(($duration == 0 && $isRemoved == false) || ($timestamp_issued < 1 && $isRemoved == false && $isExpired == false) || ($timestamp_issued >= 1 && time() < $timestamp_issued && $isRemoved == false && $isExpired == false)) {
             
                 if($admin->DoesHaveFullAccess() || $adminSteamID == $admin->adminSteamID) {
-					$editFunction = "EditFromID(\"$id\")";
+                    $editFunction = "EditFromID(\"$id\")";
                     echo "<button class='button button-primary' title='Edit' onclick='$editFunction'><i class='fa-regular fa-pen-to-square'></i>&nbspEdit Details</button>";
                     $unbanFunction = "ConfirmUnban($id, \"$clientName\", \"$clientSteamID\");";
                     echo "<button class='button button-important' title='Unban' onclick='$unbanFunction'><i class='fas fa-undo fa-lg'></i>&nbspUnban</button>";
@@ -539,12 +547,15 @@
 
         echo "</div>";
 
-        $date = new DateTime("now", new DateTimeZone("GMT+1"));
+        $date = new DateTime("now", new DateTimeZone(DATE_TIME_ZONE));
         $date->setTimestamp(($timestamp_issued - ($duration * 60)));
-        $startDate  = $date->format("Y-m-d h:i:s");
+        $startDate  = $date->format(DATE_TIME_FORMAT);
 
         $date->setTimestamp($timestamp_issued);
-        $endDate    = $date->format("Y-m-d h:i:s");
+        $endDate    = ($length === "Session") ? "Temporary" : $date->format(DATE_TIME_FORMAT);
+        if($duration == 0) {
+            $endDate = "Never";
+        }
 
         echo "<ul class='Eban_details'>";
 
@@ -592,7 +603,7 @@
 
         if($isRemoved) {
             $date->setTimestamp($timestamp_unban);
-            $removedDate = $date->format("Y-m-d h:i:s");
+            $removedDate = $date->format(DATE_TIME_FORMAT);
 
             echo "<li>";
             echo "<span><i class='fas fa-play'></i> Unbanned on</span>";
@@ -617,12 +628,12 @@
     function GetEbanLengths() {
         echo "<select id='add-select' class='select add-select'>";
         echo "<optgroup label='Minutes'>";
-        for($second = 1; $second < 3600; $second++) {
+        for ($second = 1; $second < 3600; $second++) {
             /* we want 10, 30, and 50 minutes */
-            if($second == (10*60) || $second == (30*60) || $second == (50*60)) {
+            if ($second == (10*60) || $second == (30*60) || $second == (50*60)) {
                 $minutes = ($second / 60);
                 $minutesToSeconds = ($minutes * 60);
-                if($second == $minutesToSeconds) { //
+                if ($second == $minutesToSeconds) {
                     echo "<option value='$second'>$minutes Minutes</option>";
                 }
             }
@@ -630,13 +641,13 @@
 
         echo "</optgroup>";
         echo "<optgroup label='Hours'>";
-        for($second = 1; $second < (3600 * 24); $second++) {
+        for ($second = 1; $second < (3600 * 24); $second++) {
             /* we want 1, 2, 4, 8, and 16 hours */
-            if($second == (1*60*60) || $second == (2*60*60) || $second == (4*60*60) ||
+            if ($second == (1*60*60) || $second == (2*60*60) || $second == (4*60*60) ||
                 $second == (8*60*60) || $second == (16*60*60)) {
                 $hours = ($second / (60 * 60));
                 $hoursToSeconds = ($hours * (60 * 60));
-                if($second == $hoursToSeconds) { //
+                if ($second == $hoursToSeconds) {
                     echo "<option value='$second'>$hours Hours</option>";
                 }
             }
@@ -645,12 +656,12 @@
         echo "</optgroup>";
         echo "<optgroup label='Days'>";
 
-        for($second = 1; $second <= (3600 * 24 * 3); $second++) {
+        for ($second = 1; $second <= (3600 * 24 * 3); $second++) {
             /* we want 1, 2, 3 days */
-            if($second == (1*60*60*24) || $second == (2*60*60*24) || $second == (3*60*60*24)) {
+            if ($second == (1*60*60*24) || $second == (2*60*60*24) || $second == (3*60*60*24)) {
                 $days = ($second / (60 * 60 * 24));
                 $daysToSeconds = ($days * (60 * 60 * 24));
-                if($second == $daysToSeconds) { //
+                if ($second == $daysToSeconds) {
                     echo "<option value='$second'>$days Days</option>";
                 }
             }
@@ -658,13 +669,13 @@
 
         echo "</optgroup>";
         echo "<optgroup label='Weeks'>";
-        
-        for($second = 1; $second <= (3600 * 24 * 7 * 3); $second++) {
+
+        for ($second = 1; $second <= (3600 * 24 * 7 * 3); $second++) {
             /* we want 1, 2, 3 weeks */
-            if($second == (1*60*60*24*7) || $second == (2*60*60*24*7) || $second == (3*60*60*24*7)) {
+            if ($second == (1*60*60*24*7) || $second == (2*60*60*24*7) || $second == (3*60*60*24*7)) {
                 $weeks = ($second / (60 * 60 * 24 * 7));
                 $weeksToSeconds = ($weeks * (60 * 60 * 24 * 7));
-                if($second == $weeksToSeconds) { //
+                if ($second == $weeksToSeconds) {
                     echo "<option value='$second'>$weeks Weeks</option>";
                 }
             }
@@ -672,25 +683,22 @@
 
         echo "</optgroup>";
         echo "<optgroup label='Months'>";
-        for($second = 1; $second <= (3600 * 24 * 30 * 3); $second++) {
+        for ($second = 1; $second <= (3600 * 24 * 30 * 3); $second++) {
             /* we want 1, 2, 3 months */
-            if($second == (1*60*60*24*30) || $second == (2*60*60*24*30) || $second == (3*60*60*24*30)) {
+            if ($second == (1*60*60*24*30) || $second == (2*60*60*24*30) || $second == (3*60*60*24*30)) {
                 $months = ($second / (60 * 60 * 24 * 30));
                 $monthsToSeconds = ($months * (60 * 60 * 24 * 30));
-                if($second == $monthsToSeconds) { //
+                if ($second == $monthsToSeconds) {
                     echo "<option value='$second'>$months Months</option>";
                 }
             }
         }
-        
+
         echo "</optgroup>";
-        $admin = new Admin();
-        $admin->UpdateAdminInfo($GLOBALS['steamID']);
-        if($admin->DoesHaveFullAccess()) {
-            echo "<optgroup label='Others'>";
-            echo "<option value='0'>Permanent</option>";
-            echo "</optgroup>";
-        }
+
+        echo "<optgroup label='Others'>";
+        echo "<option value='0'>Permanent</option>";
+        echo "</optgroup>";
 
         echo "</select>";
     }

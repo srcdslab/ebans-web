@@ -1,5 +1,12 @@
 <?php
     include_once('steam.php');
+    class Utility {
+        public static function sanitizeInput($input) {
+            $replacements = array("'", '"', "\\", ";", "`", "--", "#", "=", ">", "<", "&", "%", "|", "^", "~", "(", ")");
+            return str_replace($replacements, "", $input);
+        }
+    }
+
     class Admin {
         public $adminID = -1;
         public $adminGroupID = -1;
@@ -56,9 +63,11 @@
         $queryResult = $stmt->get_result();
         $stmt->close();
 
+        // Fetch the result from the query
         $row = $queryResult->fetch_assoc();
         $sbppaid = $row['aid'];
 
+        // Compare the cookie 'aid' with the result from the query
         if (!$bInitialVerification && $sbppaid != $_COOKIE['aid']) {
             return false;
         }
@@ -132,15 +141,15 @@
 
     class Eban {
         public function UnbanByID($id, $reasonA) {
-            if(!isset($_COOKIE['steamID'])) { // this should never happen, but just to be safe
+            if (!isset($_COOKIE['steamID'])) { // This should never happen, but just to be safe
                 return false;
             }
-            
-            if(empty($reasonA)) {
+        
+            if (empty($reasonA)) {
                 $reasonA = "No Reason";
             }
 
-            $reason = str_replace("'", "", $reasonA);
+            $reason = Utility::sanitizeInput($reasonA);
             $admin = new Admin();
             $admin->UpdateAdminInfo($_COOKIE['steamID']);
             $adminName = $admin->adminUser;
@@ -150,25 +159,40 @@
             $resultsB = $Eban->getEbanInfoFromID($id);
             $playerName = $resultsB['client_name'];
             $playerSteamID = $resultsB['client_steamid'];
-
             $length = $resultsB['duration'];
 
+            // Update statement
+            $sql = "UPDATE `EntWatch_Current_Eban` SET `admin_name_unban` = ?, `admin_steamid_unban` = ?, `reason_unban` = ?, `timestamp_unban` = ? WHERE `id` = ?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
             $time_unban = time();
-            $GLOBALS['DB']->query("UPDATE `EntWatch_Current_Eban` SET `admin_name_unban`='$adminName', `admin_steamid_unban`='$adminSteamID', `reason_unban`='$reason', `timestamp_unban`=$time_unban WHERE `id`=$id");
+            $stmt->bind_param("sssii", $adminName, $adminSteamID, $reason, $time_unban, $id);
+            $stmt->execute();
+            $stmt->close();
 
-            $GLOBALS['DB']->query("INSERT INTO `EntWatch_Old_Eban` (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `server`, `duration`, `timestamp_issued`, `reason`, `reason_unban`, `admin_name_unban`, `admin_steamid_unban`, `timestamp_unban`)
-                        SELECT `client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `server`, `duration`, `timestamp_issued`, `reason`, `reason_unban`, `admin_name_unban`, `admin_steamid_unban`, `timestamp_unban` FROM `EntWatch_Current_Eban` WHERE `id`=$id");
+            // Insert into EntWatch_Old_Eban statement
+            $sql = "INSERT INTO `EntWatch_Old_Eban` (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `server`, `duration`, `timestamp_issued`, `reason`, `reason_unban`, `admin_name_unban`, `admin_steamid_unban`, `timestamp_unban`)
+                    SELECT `client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `server`, `duration`, `timestamp_issued`, `reason`, `reason_unban`, `admin_name_unban`, `admin_steamid_unban`, `timestamp_unban`
+                    FROM `EntWatch_Current_Eban` WHERE `id` = ?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $stmt->close();
 
-            GetRowInfo($id);
-            $GLOBALS['DB']->query("DELETE FROM `EntWatch_Current_Eban` WHERE `id`=$id");
+            // Delete from EntWatch_Current_Eban statement
+            $sql = "DELETE FROM `EntWatch_Current_Eban` WHERE `id` = ?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $stmt->close();
 
+            // Insert into web_logs statement
             $message = "Eban Removed (was $length minutes. Reason: $reason)";
-
+            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`) VALUES (?, ?, ?, ?, ?, ?)";
+            $stmt = $GLOBALS['DB']->prepare($sql);
             $time = time();
-
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)";
-            $sql .= "VALUES ('$message', '$adminName', '$adminSteamID', '$playerName', '$playerSteamID', $time)";
-            $GLOBALS['DB']->query($sql);
+            $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
+            $stmt->execute();
+            $stmt->close();
 
             echo "<script>showEbanWindowInfo(2, \"$playerName\", \"$playerSteamID\", \"$reason\");</script>";
             return true;
@@ -178,7 +202,8 @@
             $admin = new Admin();
             $adminSteamID = (isset($_COOKIE['steamID']) ? $_COOKIE['steamID'] : "");
             $admin->UpdateAdminInfo($adminSteamID);
-            if(!IsAdminLoggedIn() || !$admin->DoesHaveFullAccess()) {
+
+            if (!IsAdminLoggedIn() || !$admin->DoesHaveFullAccess()) {
                 return false;
             }
 
@@ -191,28 +216,36 @@
             $isRemoved = ($resultsC['admin_steamid_unban'] != "" && $resultsC['admin_steamid_unban'] != "SERVER") ? true : false;
 
             $status = "Active";
-            if($isExpired && !$isRemoved) {
+            if ($isExpired && !$isRemoved) {
                 $status = "Expired";
             }
 
-            if($isRemoved) {
+            if ($isRemoved) {
                 $status = "Removed";
             }
 
             $message = "Eban Deleted (Player Name: $playerName, Player SteamID: $playerSteamID, was $length minutes. Issued for: $reason. Eban was $status)";
             $dbTable = (!$isExpired && !$isRemoved) ? "EntWatch_Current_Eban" : "EntWatch_Old_Eban";
-            $GLOBALS['DB']->query("DELETE FROM `$dbTable` WHERE `id`=$id");
+
+            // Use prepared statement for DELETE
+            $sql = "DELETE FROM `$dbTable` WHERE `id` = ?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $stmt->close();
 
             $adminName = $admin->adminUser;
-
             $time = time();
 
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)";
-            $sql .= "VALUES ('$message', '$adminName', '$adminSteamID', '$playerName', '$playerSteamID', $time)";
-            $GLOBALS['DB']->query($sql);
+            // Use prepared statement for INSERT INTO web_logs
+            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)
+                    VALUES (?, ?, ?, ?, ?, ?)";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
+            $stmt->execute();
+            $stmt->close();
 
             echo "<script>showEbanWindowInfo(3, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$length minutes\", $id);</script>";
-            //echo "<script>window.location.replace('index.php?all');</script>";
         }
 
         public function formatLength($seconds) {
@@ -314,55 +347,68 @@
             $adminSteamID = $admin->adminSteamID;
             $adminID = $admin->adminID;
 
-            $playerName = str_replace("'", "", $playerNameA);
-            $reason = str_replace("'", "", $reasonA);
+            $playerName = Utility::sanitizeInput($playerNameA);
+            $reason = Utility::sanitizeInput($reasonA);
             $lengthInMinutes = ($length / 60);
 
-            if($length <= -1) {
+            if ($length <= -1) {
                 $lengthInMinutes = 30;
-            } else if($length == 0) {
+            } else if ($length == 0) {
                 $lengthInMinutes = 0;
             }
 
-            $timestamp_issued = (time() + ($lengthInMinutes * 60));
+            $timestamp_issued = time() + ($lengthInMinutes * 60);
 
-            if($this->IsSteamIDAlreadyBanned($playerSteamID)) {
+            if ($this->IsSteamIDAlreadyBanned($playerSteamID)) {
                 die();
             }
 
-            $sql = "INSERT INTO `EntWatch_Current_Eban` (";
-            $sql .=	"`client_name`, `client_steamid`,";
-            $sql .=	"`admin_name`, `admin_steamid`, `reason`,";
-            $sql .=	"`duration`, `timestamp_issued`, `server`)";
-            $sql .= "VALUES (";
-            $sql .= "'$playerName', '$playerSteamID', '$adminName', '$adminSteamID',";
-            $sql .= "'$reason', $lengthInMinutes, $timestamp_issued, 'NIDE')";
+            // Prepare and execute INSERT INTO EntWatch_Current_Eban
+            $sql = "INSERT INTO `EntWatch_Current_Eban` 
+                    (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `reason`, `duration`, `timestamp_issued`, `server`)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'NIDE')";
+            if ($stmt = $GLOBALS['DB']->prepare($sql)) {
+                $stmt->bind_param("sssssid", $playerName, $playerSteamID, $adminName, $adminSteamID, $reason, $lengthInMinutes, $timestamp_issued);
+                if (!$stmt->execute()) {
+                    error_log("Database error: " . $stmt->error);
+                    die("Database error occurred.");
+                }
+                $stmt->close();
+            } else {
+                error_log("Database prepare error: " . $GLOBALS['DB']->error);
+                die("Database prepare error occurred.");
+            }
 
-            $GLOBALS['DB']->query($sql);
-
+            // Construct message
             $message = "Eban Added (";
-            if($lengthInMinutes >= 1) {
+            if ($lengthInMinutes >= 1) {
                 $message .= "$lengthInMinutes Minutes";
-            } else if($lengthInMinutes == 0) {
+            } else if ($lengthInMinutes == 0) {
                 $message .= "Permanent";
             } else {
                 $message .= "Session";
             }
-
             $message .= ")";
 
-            $ip = $GLOBALS['ip'];
-
             $time = time();
-            
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)";
-            $sql .= "VALUES ('$message', '$adminName', '$adminSteamID', '$playerName', '$playerSteamID', $time)";
 
-            $GLOBALS['DB']->query($sql);
+            // Prepare and execute INSERT INTO web_logs
+            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)
+                    VALUES (?, ?, ?, ?, ?, ?)";
+            if ($stmt = $GLOBALS['DB']->prepare($sql)) {
+                $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
+                if (!$stmt->execute()) {
+                    error_log("Database error: " . $stmt->error);
+                    die("Database error occurred.");
+                }
+                $stmt->close();
+            } else {
+                error_log("Database prepare error: " . $GLOBALS['DB']->error);
+                die("Database prepare error occurred.");
+            }
 
-            echo "<script>showEbanWindowInfo(0, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$lengthInMinutes minutes\");</script>";
-            //echo "<script>window.location.replace('index.php?all');</script>";
-        }
+            echo "<script>showEbanWindowInfo(0, \"" . htmlspecialchars($playerName, ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($playerSteamID, ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') . "\", \"$lengthInMinutes minutes\");</script>";
+        }        
 
         public function EditEban($id, $playerNameA, $playerSteamID, $length, $reasonA) {
             $admin = new Admin();
@@ -370,46 +416,51 @@
             $adminName = $admin->adminUser;
             $adminSteamID = $admin->adminSteamID;
 
-            $playerName = str_replace("'", "", $playerNameA);
-            $reason = str_replace("'", "", $reasonA);
+            // Escape single quotes by removing them
+            $playerName = Utility::sanitizeInput($playerNameA);
+            $reason = Utility::sanitizeInput($reasonA);
             $lengthInMinutes = ($length / 60);
-            
+
             $info = $this->getEbanInfoFromID($id);
 
             $timestamp_issued = (($info['timestamp_issued'] - ($info['duration'] * 60)) + $length);
-            if($length <= -1) {
+            if ($length <= -1) {
                 $lengthInMinutes = 30;
-            } else if($length == 0) {
+            } else if ($length == 0) {
                 $lengthInMinutes = 0;
             }
 
             $time = time();
-            if($length >= 1) {
-                if($timestamp_issued < $time) {
+            if ($length >= 1) {
+                if ($timestamp_issued < $time) {
                     $this->UnbanByID($id, "Giving another chance");
                     echo "<script>window.location.replace('index.php?all');</script>";
                     die();
                 }
             }
- 
-            $sql = "UPDATE `EntWatch_Current_Eban` SET `client_name`='$playerName', `client_steamid`='$playerSteamID', `reason`='$reason', `duration`=$lengthInMinutes, `timestamp_issued`=$timestamp_issued WHERE `id`=$id";
-            $GLOBALS['DB']->query($sql);
+
+            // Update statement
+            $sql = "UPDATE `EntWatch_Current_Eban` SET `client_name` = ?, `client_steamid` = ?, `reason` = ?, `duration` = ?, `timestamp_issued` = ? WHERE `id` = ?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("sssiii", $playerName, $playerSteamID, $reason, $lengthInMinutes, $timestamp_issued, $id);
+            $stmt->execute();
+            $stmt->close();
 
             $message = "Eban Edited (";
-            if($playerName != $info['client_name']) {
+            if ($playerName != $info['client_name']) {
                 $message .= " New Name: $playerName";
             }
-            if($playerSteamID != $info['client_steamid']) {
+            if ($playerSteamID != $info['client_steamid']) {
                 $message .= " New SteamID: $playerSteamID";
             }
-            if($reason != $info['reason']) {
+            if ($reason != $info['reason']) {
                 $message .= " New Reason: $reason"; 
             }
 
-            if($lengthInMinutes != $info['duration']) {
-                if($lengthInMinutes >= 1) {
+            if ($lengthInMinutes != $info['duration']) {
+                if ($lengthInMinutes >= 1) {
                     $message .= " New Length: $lengthInMinutes Minutes";
-                } else if($lengthInMinutes == 0) {
+                } else if ($lengthInMinutes == 0) {
                     $message .= " New Length: Permanent";
                 } else {
                     $message .= " New Length: Session";
@@ -418,10 +469,12 @@
 
             $message .= " )";
 
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)";
-            $sql .= "VALUES ('$message', '$adminName', '$adminSteamID', '$playerName', '$playerSteamID', $time)";
-
-            $GLOBALS['DB']->query($sql);
+            // Insert statement
+            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`) VALUES (?, ?, ?, ?, ?, ?)";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
+            $stmt->execute();
+            $stmt->close();
 
             echo "<script>showEbanWindowInfo(1, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$lengthInMinutes minutes\");</script>";
             //echo "<script>window.location.replace('index.php?all');</script>";

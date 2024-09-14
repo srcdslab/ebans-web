@@ -24,11 +24,12 @@ function GoHome() {
 }
 
 function ConfirmUnban(id, name, steamid) {
-    let reason = prompt('Please type the reason why you would Kunban '+name+'['+steamid+']');
-    let confirmMessage = 'Are you sure you want to Kunban '+name+'['+steamid+']';
+    let reason = prompt('Please type the reason why you would Eunban ' + name + '[' + steamid + ']');
+    let confirmMessage = 'Are you sure you want to Eunban ' + name + '[' + steamid + ']';
     let confirmHandler = confirm(confirmMessage);
-    if(confirmHandler == true) {
-        UnBanByID(id, reason);
+
+    if (confirmHandler == true) {
+        UnBanByID(encodeURIComponent(id), encodeURIComponent(reason));
     }
 }
 
@@ -36,7 +37,7 @@ function UnBanByID(id, reason) {
     var xmlResponse1 = new XMLHttpRequest();
     xmlResponse1.onreadystatechange = function() {
         if(this.readyState == 4 && this.status == 200) {
-            $('#diva-'+id).html(xmlResponse2.responseText);
+            $('#diva-'+id).html(this.responseText);
             
             let trDiva = document.getElementById('diva-tr-'+id);
             trDiva.className = "row-expired";
@@ -49,21 +50,14 @@ function UnBanByID(id, reason) {
     xmlResponse1.open("GET", "functions_url.php?oldid="+id+'&reason='+reason, true);
     xmlResponse1.send();
 
-    /*var xmlResponse2 = new XMLHttpRequest();
+    var xmlResponse2 = new XMLHttpRequest();
     xmlResponse2.onreadystatechange = function() {
         if(this.readyState == 4 && this.status == 200) {
-            $('#diva-'+id).html(xmlResponse2.responseText);
-            
-            let trDiva = document.getElementById('diva-tr-'+id);
-            trDiva.className = "row-expired";
-            let oldHtml = $('#length-'+id).html();
-            let newHtml = (oldHtml + ' (Removed)');
-            $('#length-'+id).html(newHtml);
         }
     };
 
     xmlResponse2.open("GET", "functions_url.php?id="+id, true);
-    xmlResponse2.send();*/
+    xmlResponse2.send();
 }
 
 function ViewPlayerHistory(steamid, method) {
@@ -89,7 +83,11 @@ function addNewEban(playerName, playerSteamID, length, reason) {
         }
     };
 
-    let url = "functions_url.php?add=1&playerName="+playerName+'&playerSteamID='+playerSteamID+'&length='+length+'&reason='+reason;
+    let url = "functions_url.php?add=1&playerName=" + encodeURIComponent(playerName) + 
+              '&playerSteamID=' + encodeURIComponent(playerSteamID) + 
+              '&length=' + encodeURIComponent(length) + 
+              '&reason=' + encodeURIComponent(reason);
+
     xmlResponse.open("GET", url, true);
     xmlResponse.send();
 }
@@ -102,7 +100,12 @@ function EditEban(id, playerName, playerSteamID, length, reason) {
         }
     };
 
-    let url = "functions_url.php?edit=1&id="+id+'&playerName='+playerName+'&playerSteamID='+playerSteamID+'&length='+length+'&reason='+reason;
+    let url = "functions_url.php?edit=1&id=" + encodeURIComponent(id) + 
+              '&playerName=' + encodeURIComponent(playerName) + 
+              '&playerSteamID=' + encodeURIComponent(playerSteamID) + 
+              '&length=' + encodeURIComponent(length) + 
+              '&reason=' + encodeURIComponent(reason);
+
     xmlResponse1.open("GET", url, true);
     xmlResponse1.send();
 }
@@ -307,7 +310,7 @@ function showEbanWindowInfo(type, playerName = "", playerSteamID = "", reason = 
 
     $('.Eban-action-window').css('display', 'block');
 
-    let sec = 5;
+    let sec = 3;
     setTimeout(CloseWindow, (sec * 1000)); 
 }
 

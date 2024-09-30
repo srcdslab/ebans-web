@@ -340,6 +340,17 @@
             return $rows;
         }
 
+        public function GetRealEbansNumber($steamID) {
+            $search = $steamID;
+            $searchMethod = "client_steamid";
+
+            $queryA = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`='$search' AND `reason_unban` = 'Expired'");
+            $rows = $queryA->num_rows;
+            $queryA->free();
+
+            return $rows;
+        }
+
         public function addNewEban($playerNameA, $playerSteamID, $length, $reasonA) {
             $admin = new Admin();
             $admin->UpdateAdminInfo($_COOKIE['steamID']);

@@ -202,7 +202,9 @@
                                         }
 
                                         $count = 0;
+                                        $realcount = 0;
                                         $count = $Eban->GetEbansNumber($clientSteamID);
+                                        $realcount = $Eban->GetRealEbansNumber($clientSteamID);
 
                                         $dateA->setTimestamp(($timestamp_issued - ($duration * 60)));
                                         $dateB = $dateA->format(DATE_TIME_FORMAT);
@@ -216,7 +218,11 @@
                                             echo "<td>$clientName</td>";
                                         }
                                         if($count >= 2) {
-                                            echo "<td style='color: var(--theme-text); font-weight: bold; padding: 0;' class='count' id='$id-count' count='$count' steamid='$clientSteamID'>$count <i class='fa-solid fa-ban'></i></td>";
+                                            if ($count == $realcount) {
+                                                echo "<td style='color: var(--theme-text); padding: 0;' class='count' id='$id-count' count='$count' steamid='$clientSteamID'><i class='fa-solid fa-ban'></i> <b>$realcount</b></td>";
+                                            } else {
+                                                echo "<td style='color: var(--theme-text); padding: 0;' class='count' id='$id-count' count='$count' steamid='$clientSteamID'><i class='fa-solid fa-ban'></i> <b>$realcount</b> ($count)</td>";
+                                            }
                                         } else {
                                             echo "<td></td>";
                                         }

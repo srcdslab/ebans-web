@@ -344,7 +344,7 @@
             $search = $steamID;
             $searchMethod = "client_steamid";
 
-            $queryA = $queryA = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`='$search' AND `reason_unban` = 'Expired' UNION ALL SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`='$search'");
+            $queryA = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`='$search' AND `reason_unban` = 'Expired' UNION ALL SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`='$search'");
             $rows = $queryA->num_rows;
             $queryA->free();
 

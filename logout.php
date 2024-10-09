@@ -1,4 +1,5 @@
 <?php
+
     include('functions_global.php');
     echo "Please wait....";
 

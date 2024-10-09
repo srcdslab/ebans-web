@@ -1,4 +1,5 @@
 <?php
+
     include('connect.php');
     include('functions_global.php'); 
 
@@ -32,7 +33,7 @@
     //get the data
     $result = file_get_contents('https://steamcommunity.com/openid/login', false, $context);
 
-    if(preg_match("#is_valid\s*:\s*true#i", $result)){
+    if (preg_match("#is_valid\s*:\s*true#i", $result)){
         preg_match('#^https://steamcommunity.com/openid/id/([0-9]{17,25})#', $_GET['openid_claimed_id'], $matches);
         $steamID64 = is_numeric($matches[1]) ? $matches[1] : 0;
     } else {
@@ -54,7 +55,7 @@
     $steamID32 = $steam->SteamID64_To_SteamID($steamID64);
 
     $admin = new Admin();
-    if($admin->IsLoginValid($steamID32, $secret_key, true)) {
+    if ($admin->IsLoginValid($steamID32, $secret_key, true)) {
         setcookie('steamID', $steamID32, (time() * 30), "/", $_SERVER['SERVER_NAME'], true, true);
         setcookie("secret_key", $secret_key, (time() * 30), "/", $_SERVER['SERVER_NAME'], true, true);
 

@@ -1,8 +1,9 @@
 <?php
+
     include('header.php');
 
     $admin = new Admin();
-    if(!IsAdminLoggedIn()) {
+    if (!IsAdminLoggedIn()) {
         echo "<div class='container'>
         <div class='error-box'>
         <p><i class='fa-solid fa-triangle-exclamation'></i> You do not have access to this page.</p>
@@ -16,14 +17,14 @@
     $edit = false;
     $add = false;
 
-    if(isset($_GET['reban'])) {
+    if (isset($_GET['reban'])) {
         $reban = true;
         $oldid = $_GET['oldid'];
         $Eban = new Eban();
         $info = $Eban->getEbanInfoFromID(intval($oldid));
     }
 
-    if(isset($_GET['edit'])) {
+    if (isset($_GET['edit'])) {
         $edit = true;
         $oldid = $_GET['oldid'];
         $Eban = new Eban();
@@ -46,11 +47,11 @@
         }
     }
 
-    if(isset($_GET['add'])) {
+    if (isset($_GET['add'])) {
         $add = true;
     }
 
-    if($add || $reban) {
+    if ($add || $reban) {
         echo "<script>setActive(3);</script>";
     }
 ?>
@@ -84,7 +85,7 @@
 
                 <?php
                     $val = "";
-                    if($edit == true || $reban == true) {
+                    if ($edit == true || $reban == true) {
                         $val = $info['client_name'];
                     }
                 ?>
@@ -96,14 +97,14 @@
 
                 <?php
                     $val = "";
-                    if($edit == true || $reban == true) {
+                    if ($edit == true || $reban == true) {
                         $val = $info['client_steamid'];
                     }
                 ?>
 
                 <div class="input-group">
                     <label for="steamid">Steam ID</label>
-                    <?php if(empty($val)) { ?>
+                    <?php if (empty($val)) { ?>
                         <input id="playerSteamID" type="text" class="input Eban-input">
                     <?php } else { ?>
                         <input id="playerSteamID" type="text" class="input Eban-input" value=<?php echo "\"$val\""; ?> title="Why the f*ck do you want to edit the SteamID? Just add a new Eban nigger" disabled>
@@ -112,7 +113,7 @@
 
                 <?php
                     $val = "";
-                    if($edit == true || $reban == true) {
+                    if ($edit == true || $reban == true) {
                         $val = $info['reason'];
                     }
                 ?>
@@ -122,21 +123,21 @@
                     <input id="reason" type="text" class="input Eban-input" max="120" value=<?php echo "\"$val\""; ?>>
                 </div>
 
-                <?php if($add == true) { ?>
+                <?php if ($add == true) { ?>
                 <div class="input-group">
                     <label for="length">Duration</label>
                     <?php GetEbanLengths(); ?>
                 </div>
                 <?php } ?>
 
-                <?php if($add == false) {
+                <?php if ($add == false) {
                     $timestamp_issued = $info['timestamp_issued'];
                     $duration = $info['duration'];
                     $val = 0;
 
-                    if($duration == 0) {
+                    if ($duration == 0) {
                         $val = 0;
-                    } else if($duration <= -1) {
+                    } elseif ($duration <= -1) {
                         $val = -1;
                     } else {
                         $val = intval($duration);
@@ -153,7 +154,7 @@
                 <?php
                 $buttonID = ($edit == false) ? "add-button" : "edit-button";
                 $buttonTextValidate = ($edit == false) ? "Add Eban" : "Save Changes";
-                if(!isset($_GET['oldid'])) {
+                if (!isset($_GET['oldid'])) {
                     $oldid = "";
                 }
 
@@ -173,21 +174,21 @@
                 let reason = $('#reason').val();
                 
                 let length = 30;
-                <?php if($add == true) { ?>
+                <?php if ($add == true) { ?>
                     length = $('#add-select').val();
                 <?php } else { ?>
                     length = $('#length-edit').val();
                     let select = $('#edit-select').val();
 
-                    if(select == 2) {
+                    if (select == 2) {
                         length *= 60;
-                    } else if(select == 3) {
+                    } elseif (select == 3) {
                         length *= 60 * 60;
-                    } else if(select == 4) {
+                    } elseif (select == 4) {
                         length *= 60 * 60 * 24;
-                    } else if(select == 5) {
+                    } elseif (select == 5) {
                         length *= 60 * 60 * 24 * 7;
-                    } else if(select == 6) {
+                    } elseif (select == 6) {
                         length *= 60 * 60 * 24 * 30;
                     }
                 <?php } ?>
@@ -203,15 +204,15 @@
                 let length = $('#length-edit').val();
                 let select = $('#edit-select').val();
 
-                if(select == 2) {
+                if (select == 2) {
                     length *= 60;
-                } else if(select == 3) {
+                } elseif (select == 3) {
                     length *= 60 * 60;
-                } else if(select == 4) {
+                } elseif (select == 4) {
                     length *= 60 * 60 * 24;
-                } else if(select == 5) {
+                } elseif (select == 5) {
                     length *= 60 * 60 * 24 * 7;
-                } else if(select == 6) {
+                } elseif (select == 6) {
                     length *= 60 * 60 * 24 * 30;
                 }
 

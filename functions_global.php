@@ -1,4 +1,5 @@
 <?php
+
     include_once('steam.php');
     class Utility {
         public static function sanitizeInput($input) {
@@ -124,13 +125,13 @@
         }
 
         public function DoesHaveFullAccess() {
-            if(!isset($_COOKIE['steamID'])) {
+            if (!isset($_COOKIE['steamID'])) {
                 return false;
             }
 
             // acceptatable group ids
             $groups = array(1, 3, 4);
-            if(in_array($this->adminGroupID, $groups)) {
+            if (in_array($this->adminGroupID, $groups)) {
                 return true;
             }
 
@@ -250,68 +251,68 @@
 
         public function formatLength($seconds) {
             /* if less than one minute */
-            if($seconds == 0) {
+            if ($seconds == 0) {
                 return "Permanent";
             }
 
-            if($seconds < 60) {
+            if ($seconds < 60) {
                 return "$seconds Seconds";
             }
 
             /* if one minute or more */
-            if($seconds >= 60 && $seconds < 3600) {
+            if ($seconds >= 60 && $seconds < 3600) {
                 $minutes = ($seconds / 60);
                 $minutesPhrase = ($minutes > 1) ? "Minutes" : "Minute";
                 return "$minutes $minutesPhrase";
             }
 
             /* If hour or more*/
-            if($seconds >= 3600 && $seconds < 86400) {
+            if ($seconds >= 3600 && $seconds < 86400) {
                 $hours = intval(($seconds / 3600));
                 $minutes = intval((($seconds / 60) % 60));
                 $hoursPhrase = ($hours > 1) ? "Hours" : "Hour";
                 $minutesPhrase = ($minutes > 1) ? "Minutes" : "Minute";
 
-                if($minutes <= 0) {
+                if ($minutes <= 0) {
                     return "$hours $hoursPhrase";
                 }
                 return "$hours $hoursPhrase, $minutes $minutesPhrase";
             }
 
             /* If day or more */
-            if($seconds >= 86400 && $seconds < 604800) {
+            if ($seconds >= 86400 && $seconds < 604800) {
                 $days = intval(($seconds / 86400));
                 $hours = intval((($seconds / 3600) % 24));
                 $daysPhrase = ($days > 1) ? "Days" : "Day";
                 $hoursPhrase = ($hours > 1) ? "Hours" : "Hour";
 
-                if($hours <= 0) {
+                if ($hours <= 0) {
                     return "$days $daysPhrase";
                 }
                 return "$days $daysPhrase, $hours $hoursPhrase";
             }
 
             /* if week or more */
-            if($seconds >= 604800 && $seconds < 2592000) {
+            if ($seconds >= 604800 && $seconds < 2592000) {
                 $weeks = intval(($seconds / 604800));
                 $days = intval((($seconds / 86400) % 7));
                 $weeksPhrase = ($weeks > 1) ? "Weeks" : "Week";
                 $daysPhrase = ($days > 1) ? "Days" : "Day";
                 
-                if($days <= 0) {
+                if ($days <= 0) {
                     return "$weeks $weeksPhrase";
                 }
                 return "$weeks $weeksPhrase, $days $daysPhrase";
             }
 
             /* if month or more */
-            if($seconds >= 2592000) {
+            if ($seconds >= 2592000) {
                 $months = intval(($seconds / 2592000));
                 $days = intval((($seconds / 86400) % 30));
                 $monthsPhrase = ($months > 1) ? "Months" : "Month";
                 $daysPhrase = ($days > 1) ? "Days" : "Day";
 
-                if($days <= 0) {
+                if ($days <= 0) {
                     return "$months $monthsPhrase";
                 }
                 return "$months $monthsPhrase, $days $daysPhrase";
@@ -325,7 +326,7 @@
             $results = $query->fetch_all(MYSQLI_ASSOC);
             $query->free();
 
-            foreach($results as $result) {
+            foreach ($results as $result) {
                 return $result;
             }
         }
@@ -364,7 +365,7 @@
 
             if ($length <= -1) {
                 $lengthInMinutes = 30;
-            } else if ($length == 0) {
+            } elseif ($length == 0) {
                 $lengthInMinutes = 0;
             }
 
@@ -394,7 +395,7 @@
             $message = "Eban Added (";
             if ($lengthInMinutes >= 1) {
                 $message .= "$lengthInMinutes Minutes";
-            } else if ($lengthInMinutes == 0) {
+            } elseif ($lengthInMinutes == 0) {
                 $message .= "Permanent";
             } else {
                 $message .= "Session";
@@ -437,7 +438,7 @@
             $timestamp_issued = (($info['timestamp_issued'] - ($info['duration'] * 60)) + $length);
             if ($length <= -1) {
                 $lengthInMinutes = 30;
-            } else if ($length == 0) {
+            } elseif ($length == 0) {
                 $lengthInMinutes = 0;
             }
 
@@ -471,7 +472,7 @@
             if ($lengthInMinutes != $info['duration']) {
                 if ($lengthInMinutes >= 1) {
                     $message .= " New Length: $lengthInMinutes Minutes";
-                } else if ($lengthInMinutes == 0) {
+                } elseif ($lengthInMinutes == 0) {
                     $message .= " New Length: Permanent";
                 } else {
                     $message .= " New Length: Session";
@@ -511,7 +512,7 @@
     }
 
     function IsAdminLoggedIn() {
-        if(!isset($_COOKIE['steamID'])) {
+        if (!isset($_COOKIE['steamID'])) {
             return false;
         }
 
@@ -519,7 +520,7 @@
         $secret_key = $_COOKIE['secret_key'];
 
         $admin = new Admin();
-        if($admin->IsLoginValid($steamID, $secret_key, false)) {
+        if ($admin->IsLoginValid($steamID, $secret_key, false)) {
             return true;
         }
 
@@ -535,7 +536,7 @@
         $admin = new Admin();
         $Eban = new Eban();
         
-        if($id != 0) {
+        if ($id != 0) {
             $result2 = $Eban->getEbanInfoFromID($id);
         } else {
             $id = $result2['id'];
@@ -559,18 +560,18 @@
         $isRemoved = ($adminSteamIDRemoved != "" && $adminSteamIDRemoved != "SERVER") ? true : false;
 
         $length = $Eban->formatLength($duration * 60);
-        if($duration == 0) {
+        if ($duration == 0) {
             $length = "Permanent";
-        } else if($duration <= -1) {
+        } elseif ($duration <= -1) {
             $length = "Session";
         }
 
         $status = "Eban Active";
-        if($isExpired && !$isRemoved) {
+        if ($isExpired && !$isRemoved) {
             $status = "Eban Expired";
         }
 
-        if($isRemoved) {
+        if ($isRemoved) {
             $status = "Eban Removed";
         }
 
@@ -580,31 +581,31 @@
 
         echo "<button onclick='$href' class='button button-light' title='View History'><i class='fa-solid fa-clock-rotate-left'></i>&nbspView History</button>";
     
-        if(IsAdminLoggedIn()) {
+        if (IsAdminLoggedIn()) {
             $admin->UpdateAdminInfo($_COOKIE['steamID']);
 
-            if(($duration == 0 && $isRemoved == false) || ($timestamp_issued < 1 && $isRemoved == false && $isExpired == false) || ($timestamp_issued >= 1 && time() < $timestamp_issued && $isRemoved == false && $isExpired == false)) {
+            if (($duration == 0 && $isRemoved == false) || ($timestamp_issued < 1 && $isRemoved == false && $isExpired == false) || ($timestamp_issued >= 1 && time() < $timestamp_issued && $isRemoved == false && $isExpired == false)) {
             
-                if($admin->DoesHaveFullAccess() || $adminSteamID == $admin->adminSteamID) {
+                if ($admin->DoesHaveFullAccess() || $adminSteamID == $admin->adminSteamID) {
                     $editFunction = "EditFromID(\"$id\")";
                     echo "<button class='button button-primary' title='Edit' onclick='$editFunction'><i class='fa-regular fa-pen-to-square'></i>&nbspEdit Details</button>";
                     $unbanFunction = "ConfirmUnban($id, \"$clientName\", \"$clientSteamID\");";
                     echo "<button class='button button-important' title='Unban' onclick='$unbanFunction'><i class='fas fa-undo fa-lg'></i>&nbspUnban</button>";
                 }
             } else {
-                if(!$Eban->IsSteamIDAlreadyBanned($clientSteamID)) {
+                if (!$Eban->IsSteamIDAlreadyBanned($clientSteamID)) {
                     $reBanFunction = "RebanFromID(\"$id\");";
                     echo "<button class='button button-important' title='Reban' onclick='$reBanFunction'><i class='fas fa-redo fa-lg'></i>&nbspReban</button>";
                 }
             }
         }
 
-        if($admin->DoesHaveFullAccess()) {
+        if ($admin->DoesHaveFullAccess()) {
             $deleteFunction = "RemoveEbanFromDBCheck($id);";
             echo "<button class='button button-important' title='Delete' onclick='$deleteFunction'><i class='fa-solid fa-trash'></i>&nbspDelete Eban</button>";
         }
 
-        if(!IsAdminLoggedIn()) {
+        if (!IsAdminLoggedIn()) {
             $href = "Login();";
             echo "<button onclick='$href' class='button button-success' title='Sign in'>Admin? Sign in</button>";
         }
@@ -617,7 +618,7 @@
 
         $date->setTimestamp($timestamp_issued);
         $endDate    = ($length === "Session") ? "Temporary" : $date->format(DATE_TIME_FORMAT);
-        if($duration == 0) {
+        if ($duration == 0) {
             $endDate = "Never";
         }
 
@@ -665,7 +666,7 @@
         echo "<span>$status</span>";
         echo "</li>";
 
-        if($isRemoved) {
+        if ($isRemoved) {
             $date->setTimestamp($timestamp_unban);
             $removedDate = $date->format(DATE_TIME_FORMAT);
 

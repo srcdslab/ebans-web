@@ -1,7 +1,8 @@
 <?php
+
     include('header.php');
 
-    if(!IsAdminLoggedIn()) {
+    if (!IsAdminLoggedIn()) {
         echo "<div class='container'>
         <div class='error-box'>
         <p><i class='fa-solid fa-triangle-exclamation'></i> You do not have access to this page.</p>
@@ -13,7 +14,7 @@
     
     $admin = new Admin();
     $admin->UpdateAdminInfo($_COOKIE['steamID']);
-    if(!$admin->DoesHaveFullAccess()) {
+    if (!$admin->DoesHaveFullAccess()) {
         echo "<div class='container'>
         <div class='error-box'>
         <p><i class='fa-solid fa-triangle-exclamation'></i> You do not have access to this page.</p>
@@ -23,7 +24,7 @@
         die();
     }
 
-    if(isset($_GET['page'])) {
+    if (isset($_GET['page'])) {
         $currentPage = ($_GET['page'] <= 0) ? 1 : $_GET['page'];
     } else {
         $currentPage = 1;
@@ -35,7 +36,7 @@
     $sql = "SELECT * FROM ";
     $sql .= "`web_logs`";
 
-    if(isset($_GET['s'])) {
+    if (isset($_GET['s'])) {
         $input = $_GET['s'];
         $method = formatMethod(intval($_GET['m']));
         $sql .= " WHERE `$method`=$input ";
@@ -46,7 +47,7 @@
     $totalPages = ceil(($resultsCount / $resultsPerPage));
 
     $sql_query->free();
-    if($totalPages != 0 && $currentPage > $totalPages) {
+    if ($totalPages != 0 && $currentPage > $totalPages) {
         $currentPage = $totalPages;
     }
 
@@ -62,7 +63,7 @@
     $query->free();
 
     $url = $_SERVER['REQUEST_URI'];
-    if(str_contains($url, '&page')) {
+    if (str_contains($url, '&page')) {
         $url = substr($url, 0, strpos($url, '&page'));
     }
     ?>
@@ -92,19 +93,19 @@
                     $nextPage = $currentPage + 1;
                     $previousPage = $currentPage - 1;
 
-                    if($previousPage > 0) {
+                    if ($previousPage > 0) {
                         $href = $url . "&page=$previousPage";
                         echo "<a href='$href'><i class='fa fa-arrow-circle-left'></i> previous</a> |";
                     }
 
-                    if($nextPage > 0 && $nextPage <= $totalPages) {
+                    if ($nextPage > 0 && $nextPage <= $totalPages) {
                         $href = $url . "&page=$nextPage";
                         echo "&nbsp;<a href='$href'>next <i class='fa fa-arrow-circle-right'></i></a>";
                     }
 
                     echo "&nbsp;<select class='select_' style='width: 60px;' data-href='$url'>";
                     for($i = 1; $i <= $totalPages; $i++) {
-                        if($currentPage == $i) {
+                        if ($currentPage == $i) {
                             echo "<option value='$i' selected>$i</option>";
                         } else {
                             echo "<option value='$i'>$i</option>";
@@ -132,7 +133,7 @@
                             <?php
                                 $admin = new Admin();
                                 $date = new DateTime("now", new DateTimeZone(DATE_TIME_ZONE));
-                                foreach($results1 as $result1) {
+                                foreach ($results1 as $result1) {
                                     $clientName         = $result1['client_name'];
                                     $clientSteamID      = $result1['client_steamid'];
                                     $adminSteamID       = $result1['admin_steamid'];
@@ -147,7 +148,7 @@
 
                                     echo "<tr class='row-expired'>";
                                     echo "<td>$dateFormated</td>";
-                                    if(empty($clientName)) {
+                                    if (empty($clientName)) {
                                         echo "<td><i>No nickname present</i> ($clientSteamID)</a></td>";
                                     } else {
                                         echo "<td>$clientName ($clientSteamID)</a></td>";

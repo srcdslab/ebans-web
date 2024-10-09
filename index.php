@@ -1,12 +1,13 @@
 <?php
+
     include('header.php');
 
-    if(!isset($_GET['all']) && !isset($_GET['active']) && !isset($_GET['expired'])) {
+    if (!isset($_GET['all']) && !isset($_GET['active']) && !isset($_GET['expired'])) {
         echo "<script>window.location.replace('index.php?all');</script>";
         die();
     }
 
-    if(isset($_GET['page'])) {
+    if (isset($_GET['page'])) {
         $currentPage = ($_GET['page'] <= 0) ? 1 : $_GET['page'];
     } else {
         $currentPage = 1;
@@ -17,26 +18,26 @@
 
     $pageType = "all";
     $sql = 'SELECT * FROM `EntWatch_Current_Eban` UNION ALL SELECT * FROM `EntWatch_Old_Eban`';
-    if(isset($_GET['active'])) {
+    if (isset($_GET['active'])) {
         $sql = 'SELECT * FROM `EntWatch_Current_Eban` ';
         $pageType = "active";
-    } else if(isset($_GET['expired'])) {
+    } elseif (isset($_GET['expired'])) {
         $pageType = "expired";
         $sql = 'SELECT * FROM `EntWatch_Old_Eban` ';
     }
 
-    if(isset($_GET['s'])) {
+    if (isset($_GET['s'])) {
         $input = $_GET['s'];
         $method = formatMethod(intval($_GET['m']));
-        if($method == "client_steamid" || $method == "admin_steamid") {
-            if(!str_contains($input, "STEAMID")) {
-                if(str_contains($input, " ")) {
+        if ($method == "client_steamid" || $method == "admin_steamid") {
+            if (!str_contains($input, "STEAMID")) {
+                if (str_contains($input, " ")) {
                     $input = str_replace(" ", "", $input);
                 }
             }
         }
 
-        if($pageType == "all") {
+        if ($pageType == "all") {
             $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `$method` LIKE '%$input%' UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `$method` LIKE '%$input%' ";
         } else {
             $sql .= "WHERE `$method` LIKE '%$input%' ";
@@ -48,20 +49,20 @@
     $totalPages = ceil(($resultsCount / $resultsPerPage));
 
     $sql_query->free();
-    if($totalPages != 0 && $currentPage > $totalPages) {
+    if ($totalPages != 0 && $currentPage > $totalPages) {
         $currentPage = $totalPages;
     }
     
     $pageActiveNum = 2;
-    if($pageType == "all") {
+    if ($pageType == "all") {
         $pageActiveNum = 0;
         $pageName = "Eban List";
         $icon = "<i class='fa-solid fa-house'></i>";
-    } else if($pageType == "active") {
+    } elseif ($pageType == "active") {
         $pageActiveNum = 1;
         $pageName = "Active Eban";
         $icon = "<i class='fa-solid fa-hourglass-half'></i>";
-    } else if($pageType == "expired") {
+    } elseif ($pageType == "expired") {
         $pageActiveNum = 2;
         $pageName = "Expired Eban";
         $icon = "<i class='fa-solid fa-hourglass-end'></i>";
@@ -79,7 +80,7 @@
         $query->free();
 
         $url = $_SERVER['REQUEST_URI'];
-        if(str_contains($url, '&page')) {
+        if (str_contains($url, '&page')) {
             $url = substr($url, 0, strpos($url, '&page'));
         }
     ?>
@@ -109,19 +110,19 @@
                         $nextPage = $currentPage + 1;
                         $previousPage = $currentPage - 1;
 
-                        if($previousPage > 0) {
+                        if ($previousPage > 0) {
                             $href = $url . "&page=$previousPage";
                             echo "<a href='$href'><i class='fa fa-arrow-circle-left'></i> previous</a> |";
                         }
 
-                        if($nextPage > 0 && $nextPage <= $totalPages) {
+                        if ($nextPage > 0 && $nextPage <= $totalPages) {
                             $href = $url . "&page=$nextPage";
                             echo "&nbsp;<a href='$href'>next <i class='fa fa-arrow-circle-right'></i></a>";
                         }
 
                         echo "&nbsp;<select class='select_' style='width: 60px;' data-href='$url'>";
-                        for($i = 1; $i <= $totalPages; $i++) {
-                            if($currentPage == $i) {
+                        for ($i = 1; $i <= $totalPages; $i++) {
+                            if ($currentPage == $i) {
                                 echo "<option value='$i' selected>$i</option>";
                             } else {
                                 echo "<option value='$i'>$i</option>";
@@ -153,7 +154,7 @@
                                     $Eban = new Eban();
                                     $admin = new Admin();
                                     $dateA = new DateTime("now", new DateTimeZone(DATE_TIME_ZONE));
-                                    foreach($results1 as $result1) {
+                                    foreach ($results1 as $result1) {
                                         $id                 = $result1['id'];
                                         $clientName         = $result1['client_name'];
                                         $clientSteamID      = $result1['client_steamid'];
@@ -171,33 +172,33 @@
                                         $adminName = $admin->GetAdminNameFromSteamID($adminSteamID);
 
                                         $length = $Eban->formatLength($duration * 60);
-                                        if($duration == 0) {
+                                        if ($duration == 0) {
                                             $length = "Permanent";
-                                        } else if($duration <= -1) {
+                                        } elseif ($duration <= -1) {
                                             $length = "Session";
                                         }
 
-                                        if(($isExpired == true && $isRemoved == false)) {
+                                        if (($isExpired == true && $isRemoved == false)) {
                                             $length .= ' (Expired)';
-                                            if(isset($_GET['active'])) {
+                                            if (isset($_GET['active'])) {
                                                 continue;
                                             }
                                         }
 
-                                        if($isRemoved == true) {
+                                        if ($isRemoved == true) {
                                             $length .= ' (Removed)';
                                         }
 
                                         $class = "row-expired";
-                                        if(!$isExpired && !$isRemoved) {
+                                        if (!$isExpired && !$isRemoved) {
                                             $class = "row-active";
                                         }
 
-                                        if($duration == 0) { // permanent ban
+                                        if ($duration == 0) { // permanent ban
                                             $class = "row-permanent";
                                         }
 
-                                        if($isRemoved) {
+                                        if ($isRemoved) {
                                             $class = "row-expired";
                                         }
 
@@ -212,12 +213,12 @@
                                         
                                         echo "<td style='background-color: transparent; align-items: center;'><img src='./images/games/csource.png' border='0' align='absmiddle' alt='css'></td>";
                                         echo "<td>$dateB</td>";
-                                        if(empty($clientName)) {
+                                        if (empty($clientName)) {
                                             echo "<td><i>No nickname present</i></td>";
                                         } else {
                                             echo "<td>$clientName</td>";
                                         }
-                                        if($count >= 2) {
+                                        if ($count >= 2) {
                                             if ($count == $realcount) {
                                                 echo "<td style='color: var(--theme-text); padding: 0;' class='count' id='$id-count' count='$count' steamid='$clientSteamID'><i class='fa-solid fa-ban'></i> <b>$realcount</b></td>";
                                             } else {
@@ -258,7 +259,7 @@
             ".row-active"
         ];
 
-        for(var i = 0; i < allRows.length; i++) {
+        for (var i = 0; i < allRows.length; i++) {
             $(allRows[i]).on('click', function() {
                 showEbanInfo(this);
             });

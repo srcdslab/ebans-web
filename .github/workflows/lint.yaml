@@ -1,0 +1,41 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: bcmath, curl, gd, mbstring, mysql, openssl, pdo, tokenizer, xml, zip
+          tools: composer:v2, php-cs-fixer
+          coverage: none
+
+      - name: PHP CS Fixer
+        run: |
+          php-cs-fixer fix --dry-run --diff --verbose .
+        continue-on-error: true
+
+      - name: Check PHP CS Fixer result
+        run: |
+          if [ ${{ steps.php-cs-fixer.outcome }} == 'failure' ]; then
+            echo "PHP CS Fixer found issues. Please review the output above."
+            exit 1
+          fi

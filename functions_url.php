@@ -1,8 +1,10 @@
 <?php
+
     include_once('connect.php');
     include_once('functions_global.php');
 
-    function sanitizeString($input) {
+    function sanitizeString($input)
+    {
         // Replace problematic characters with an empty string
         $replacements = array("'", '"', "\\", ";", "`", "--", "#", "=", ">", "<", "&", "%", "|", "^", "~", "(", ")");
         $sanitized = str_replace($replacements, "", $input);

@@ -20,18 +20,14 @@ class Steam
 	{
 		try {
 			$type = self::resolveInputID($steamid);
-			error_log("Converting SteamID of type: $type");
-			
 			switch ($type) {
 				case 'Steam2':
 					return $steamid;
 				case 'Steam3':
 					$converted = self::SteamID3_To_SteamID($steamid);
-					error_log("Steam3 to Steam2: $converted");
 					return $converted;
 				case 'Steam64':
 					$converted = self::SteamID64_To_SteamID($steamid);
-					error_log("Converted Steam64 to Steam2: $converted");
 					return $converted;
 				default:
 					throw new Exception("Invalid SteamID input!");

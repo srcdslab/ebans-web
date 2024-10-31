@@ -2,6 +2,42 @@
 
 class Steam
 {
+	private static function resolveInputID($steamid)
+	{
+		switch (true) {
+			case preg_match("/STEAM_[0|1]:[0:1]:\d*/", $steamid):
+				return 'Steam2';
+			case preg_match("/\[U:1:\d*\]/", $steamid):
+				return 'Steam3';
+			case preg_match("/\d{17}/", $steamid):
+				return 'Steam64';
+			default:
+				throw new Exception("Invalid SteamID input!");
+		}
+	}
+
+	public static function convertSteamID($steamid)
+	{
+		try {
+			$type = self::resolveInputID($steamid);
+			switch ($type) {
+				case 'Steam2':
+					return $steamid;
+				case 'Steam3':
+					$converted = self::SteamID3_To_SteamID($steamid);
+					return $converted;
+				case 'Steam64':
+					$converted = self::SteamID64_To_SteamID($steamid);
+					return $converted;
+				default:
+					throw new Exception("Invalid SteamID input!");
+			}
+		} catch (Exception $e) {
+			error_log("Error during conversion: " . $e->getMessage());
+			throw $e;
+		}
+	}
+
 	public static function SteamID_To_SteamID3($steamid32) 
 	{
 		if (preg_match('/^STEAM_[01]\:[01]\:(.*)$/', $steamid32, $res)) {
@@ -16,8 +52,8 @@ class Steam
 
 	public static function SteamID3_To_SteamID($steamid3)
 	{
-		if (preg_match("/U:1:(\d+)/", $steamid3)) {
-			$steam3 = preg_replace("/U:1:(\d+)/", "\$1", $steamid3);
+		if (preg_match("/U:1:(\d+)/", $steamid3, $matches)) {
+			$steam3 = intval($matches[1]);
 			$A = $steam3 % 2;
 			$B = intval($steam3 / 2);
 			return "STEAM_0:" . $A . ":" . $B;
@@ -73,5 +109,15 @@ class Steam
 
 		return $SteamProfileAttribute;
 	}
+	
+	function verifyAndConvertSteamID($steamid) {
+		try {
+			$steamID2 = Steam::convertSteamID($steamid);
+			return ['success' => true, 'steamID2' => $steamID2];
+		} catch (Exception $e) {
+			return ['success' => false, 'error' => $e->getMessage()];
+		}
+	}
+
 }
 ?>

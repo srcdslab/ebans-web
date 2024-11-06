@@ -35,6 +35,16 @@
                     $input = str_replace(" ", "", $input);
                 }
             }
+
+            $steam = new Steam();
+            $result = $steam->verifyAndConvertSteamID($input);
+
+            if ($result['success']) {
+                $convertedSteamID = $result['steamID2'];
+                $input = $convertedSteamID;
+            } else {
+                error_log("Error converting SteamID: " . $result['error']);
+            }
         }
 
         if ($pageType == "all") {

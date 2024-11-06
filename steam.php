@@ -9,6 +9,8 @@ class Steam
 				return 'Steam2';
 			case preg_match("/\[U:1:\d*\]/", $steamid):
 				return 'Steam3';
+			case preg_match("/U:1:\d*/", $steamid):
+				return 'Steam3';
 			case preg_match("/\d{17}/", $steamid):
 				return 'Steam64';
 			default:

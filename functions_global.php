@@ -512,7 +512,7 @@
     }
 
     function IsAdminLoggedIn() {
-        if (!isset($_COOKIE['steamID'])) {
+        if (!isset($_COOKIE['steamID']) || !isset($_COOKIE['secret_key'])) {
             return false;
         }
 

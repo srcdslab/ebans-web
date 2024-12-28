@@ -630,10 +630,21 @@
         echo "</li>";
 
         $steam = new Steam();
+        $clientSteamID3 = $steam->SteamID_To_SteamID3($clientSteamID);
         $clientSteamID64 = $steam->SteamID_To_SteamID64($clientSteamID);
         echo "<li>";
         echo "<span><i class='fab fa-steam-symbol'></i> Steam ID</span>";
-        echo "<span><a href='https://steamcommunity.com/profiles/$clientSteamID64' target='_blank'>$clientSteamID</a></span>";
+        echo "<span>$clientSteamID</span>";
+        echo "</li>";
+
+        echo "<li>";
+        echo "<span><i class='fab fa-steam-symbol'></i> Steam3 ID</span>";
+        echo "<span><a href='https://steamcommunity.com/profiles/$clientSteamID64' target='_blank'>$clientSteamID3</a></span>";
+        echo "</li>";
+
+        echo "<li>";
+        echo "<span><i class='fab fa-steam-symbol'></i> Steam Community</span>";
+        echo "<span><a href='https://steamcommunity.com/profiles/$clientSteamID64' target='_blank'>$clientSteamID64</a></span>";
         echo "</li>";
 
         echo "<li>";

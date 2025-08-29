@@ -320,8 +320,11 @@
         }
 
         public function getEbanInfoFromID($id) {
-            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `id`='$id' UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `id`='$id'";
-            $query = $GLOBALS['DB']->query($sql);
+            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `id`=? UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `id`=?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("ii", $id, $id);
+            $stmt->execute();
+            $query = $stmt->get_result();
 
             $results = $query->fetch_all(MYSQLI_ASSOC);
             $query->free();
@@ -335,7 +338,11 @@
             $search = $steamID;
             $searchMethod = "client_steamid";
 
-            $queryA = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`='$search' UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`='$search'");
+            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`=? UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`=?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("ss", $search, $search);
+            $stmt->execute();
+            $queryA = $stmt->get_result();
             $rows = $queryA->num_rows;
             $queryA->free();
             return $rows;
@@ -345,7 +352,11 @@
             $search = $steamID;
             $searchMethod = "client_steamid";
 
-            $queryA = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`='$search' AND `reason_unban` = 'Expired' UNION ALL SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`='$search'");
+            $sql = "SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`=? AND `reason_unban` = 'Expired' UNION ALL SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`=?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("ss", $search, $search);
+            $stmt->execute();
+            $queryA = $stmt->get_result();
             $rows = $queryA->num_rows;
             $queryA->free();
 
@@ -493,16 +504,32 @@
         }
 
         public function IsSteamIDAlreadyBanned($steamID) {
-            $query = $GLOBALS['DB']->query("SELECT * FROM `EntWatch_Current_Eban` WHERE `client_steamid`='$steamID'");
+            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `client_steamid`=?";
+            $stmt = $GLOBALS['DB']->prepare($sql);
+            $stmt->bind_param("s", $steamID);
+            $stmt->execute();
+            $query = $stmt->get_result();
+
             $results = $query->fetch_all(MYSQLI_ASSOC);
             $query->free();
 
             foreach ($results as $result) {
-                $isActive = ($result['is_expired'] == 0 && $result['is_removed'] == 0);
-                $isPermanent = ($result['time_stamp_end'] <= 0);
-                $isExpired = !$isPermanent && (time() >= $result['time_stamp_end']);
+                $isRemoved = (!empty($result['admin_steamid_unban']) && $result['admin_steamid_unban'] != "SERVER");
+                $isPermanent = ($result['duration'] == 0);
 
-                if ($isActive && ($isPermanent || !$isExpired)) {
+                // Check if ban is expired (only for non-permanent bans)
+                $isExpired = false;
+                if (!$isPermanent && $result['duration'] > 0) {
+                    $endTime = $result['timestamp_issued'] + ($result['duration'] * 60);
+                    $isExpired = (time() >= $endTime);
+                }
+
+                // Ban is active if not removed and not expired
+                // For permanent bans: active if not removed
+                // For temporary bans: active if not removed and not expired
+                $isActive = !$isRemoved && (!$isPermanent || !$isExpired);
+
+                if ($isActive) {
                     return true; // Early return when a matching active ban is found
                 }
             }

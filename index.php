@@ -84,7 +84,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <?php
-        $query = $GLOBALS['DB']->query($sql . "ORDER BY timestamp_issued-duration*60 DESC LIMIT $resultsStart, $resultsPerPage");
+        $query = $GLOBALS['DB']->query($sql . "ORDER BY CASE WHEN `timestamp_issued`<`duration`*60 THEN `timestamp_issued` ELSE `timestamp_issued`-`duration`*60 END DESC LIMIT $resultsStart, $resultsPerPage");
         $results1 = $query->fetch_all(MYSQLI_ASSOC);
         $resultsRealCount = $query->num_rows;
         $query->free();

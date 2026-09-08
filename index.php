@@ -16,14 +16,18 @@
     $resultsPerPage = 20;
     $resultsStart = (($currentPage - 1) * $resultsPerPage);
 
+    /* EntWatch 4 holds every eban in one table, so active and expired are
+       filters over `unbanned_at` / `expires_at` rather than separate tables. */
+    $now = time();
+    $conditions = array();
+
     $pageType = "all";
-    $sql = 'SELECT * FROM `EntWatch_Current_Eban` UNION ALL SELECT * FROM `EntWatch_Old_Eban`';
     if (isset($_GET['active'])) {
-        $sql = 'SELECT * FROM `EntWatch_Current_Eban` ';
         $pageType = "active";
+        $conditions[] = "(`unbanned_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > $now))";
     } elseif (isset($_GET['expired'])) {
         $pageType = "expired";
-        $sql = 'SELECT * FROM `EntWatch_Old_Eban` ';
+        $conditions[] = "(`unbanned_at` IS NOT NULL OR (`expires_at` IS NOT NULL AND `expires_at` <= $now))";
     }
 
     if (isset($_GET['s'])) {
@@ -47,13 +51,15 @@
             }
         }
 
-        if ($pageType == "all") {
-            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `$method` LIKE '%$input%' UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `$method` LIKE '%$input%' ";
-        } else {
-            $sql .= "WHERE `$method` LIKE '%$input%' ";
-        }
+        $search = $GLOBALS['DB']->real_escape_string($input);
+        $conditions[] = "`$method` LIKE '%$search%'";
     }
-    
+
+    $sql = 'SELECT * FROM `EntWatch_Ebans` ';
+    if (!empty($conditions)) {
+        $sql .= 'WHERE ' . implode(' AND ', $conditions) . ' ';
+    }
+
     $sql_query = $GLOBALS['DB']->query($sql);
     $resultsCount = $sql_query->num_rows;
     $totalPages = ceil(($resultsCount / $resultsPerPage));
@@ -84,7 +90,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <?php
-        $query = $GLOBALS['DB']->query($sql . "ORDER BY CASE WHEN `timestamp_issued`<`duration`*60 THEN `timestamp_issued` ELSE `timestamp_issued`-`duration`*60 END DESC LIMIT $resultsStart, $resultsPerPage");
+        $query = $GLOBALS['DB']->query($sql . "ORDER BY `issued_at` DESC LIMIT $resultsStart, $resultsPerPage");
         $results1 = $query->fetch_all(MYSQLI_ASSOC);
         $resultsRealCount = $query->num_rows;
         $query->free();
@@ -170,54 +176,32 @@
                                         $clientSteamID      = $result1['client_steamid'];
                                         $adminSteamID       = $result1['admin_steamid'];
                                         $reason             = $result1['reason'];
-                                        $duration           = $result1['duration'];
-                                        $timestamp_issued   = $result1['timestamp_issued'];
-                                        $timestamp_unban     = $result1['timestamp_unban'];
-                                        $adminNameRemoved   = $result1['admin_name_unban'];
-                                        $adminSteamIDRemoved = $result1['admin_steamid_unban'];
+                                        $duration           = $result1['duration_minutes'];
+                                        $issued_at          = $result1['issued_at'];
 
-                                        $isExpired = ($adminSteamIDRemoved == "SERVER" && ($timestamp_issued) < time()) ? true : false;
-                                        $isRemoved = ($adminSteamIDRemoved != "" && $adminSteamIDRemoved != "SERVER") ? true : false;
-                                        
+                                        $ebanStatus = $Eban->GetStatus($result1);
+                                        $isExpired = ($ebanStatus == "expired");
+                                        $isRemoved = ($ebanStatus == "removed");
+
                                         $adminName = $admin->GetAdminNameFromSteamID($adminSteamID);
 
-                                        $length = $Eban->formatLength($duration * 60);
-                                        if ($duration == 0) {
-                                            $length = "Permanent";
-                                        } elseif ($duration <= -1) {
-                                            $length = "Session";
-                                        }
+                                        $length = $Eban->FormatDuration($duration);
 
-                                        if (($isExpired == true && $isRemoved == false)) {
+                                        if ($isExpired) {
                                             $length .= ' (Expired)';
-                                            if (isset($_GET['active'])) {
-                                                continue;
-                                            }
-                                        }
-
-                                        if ($isRemoved == true) {
+                                        } elseif ($isRemoved) {
                                             $length .= ' (Removed)';
                                         }
 
                                         $class = "row-expired";
-                                        if (!$isExpired && !$isRemoved) {
-                                            $class = "row-active";
+                                        if ($ebanStatus == "active") {
+                                            $class = ($duration == 0) ? "row-permanent" : "row-active";
                                         }
 
-                                        if ($duration == 0) { // permanent ban
-                                            $class = "row-permanent";
-                                        }
-
-                                        if ($isRemoved) {
-                                            $class = "row-expired";
-                                        }
-
-                                        $count = 0;
-                                        $realcount = 0;
                                         $count = $Eban->GetEbansNumber($clientSteamID);
                                         $realcount = $Eban->GetRealEbansNumber($clientSteamID);
 
-                                        $dateA->setTimestamp(($timestamp_issued - ($duration * 60)));
+                                        $dateA->setTimestamp($issued_at);
                                         $dateB = $dateA->format(DATE_TIME_FORMAT);
                                         echo "<tr class='$class' id-data='$id' id='diva-tr-$id'>";
                                         

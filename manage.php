@@ -30,20 +30,14 @@
         $Eban = new Eban();
         $info = $Eban->getEbanInfoFromID(intval($oldid));
 
-        $timestamp_issued = $info['timestamp_issued'];
-        $duration = $info['duration'];
-        if ($duration == 0) {
-            // Do nothing
-        } else {
-            if ($timestamp_issued >= 1 && time() > $timestamp_issued) {
-                echo "<div class='container'>
-                <div class='error-box'>
-                <p><i class='fa-solid fa-triangle-exclamation'></i> Cannot edit an old Eban!</p>
-                </div>
-                </div>
-                </div>";
-                die();
-            }
+        if (!$Eban->IsEbanActive($info)) {
+            echo "<div class='container'>
+            <div class='error-box'>
+            <p><i class='fa-solid fa-triangle-exclamation'></i> Cannot edit an old Eban!</p>
+            </div>
+            </div>
+            </div>";
+            die();
         }
     }
 
@@ -131,8 +125,7 @@
                 <?php } ?>
 
                 <?php if ($add == false) {
-                    $timestamp_issued = $info['timestamp_issued'];
-                    $duration = $info['duration'];
+                    $duration = $info['duration_minutes'];
                     $val = 0;
 
                     if ($duration == 0) {

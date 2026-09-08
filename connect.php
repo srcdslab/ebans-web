@@ -22,6 +22,10 @@ if (!$GLOBALS['DB']) {
     die('Main Database Connection error: ' . mysqli_connect_error());
 }
 
+// EntWatch 4 creates its table as utf8mb4, so the connection has to match or
+// player names outside the BMP come back mangled.
+mysqli_set_charset($GLOBALS['DB'], EBAN_DB_CHARSET);
+
 
 $GLOBALS['SBPP'] = mysqli_connect(
                             SBPP_DB_HOST,

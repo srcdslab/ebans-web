@@ -28,7 +28,7 @@ define('EBAN_DB_USER', 'example'); // The username to connect with
 define('EBAN_DB_PASSWORD', 'example'); // The password
 define('EBAN_DB_NAME', 'example'); // Database name
 define('EBAN_DB_PORT', '3306'); // The SQL port (Default: 3306)
-define('EBAN_DB_CHARSET', 'utf8'); // The Database charset (Default: utf8)
+define('EBAN_DB_CHARSET', 'utf8mb4'); // The Database charset (EntWatch 4 uses utf8mb4)
 define('EBAN_DB_PREFIX', ''); // The table prefix for EBans
 
 ?>

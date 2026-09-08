@@ -1,7 +1,7 @@
 <footer class="footer">
     <div class="layout_container flex flex-jc:space-between flex-ai:center">
         <div class="flex flex-fd:column text:left">
-            <span>Copyright © <a href="<?= $GLOBALS['SERVER_FORUM_URL'] ?>" target="_blank"><?= $GLOBALS['SERVER_FORUM_NAME'] ?></a> 2016 - <?= date('Y') ?></span>
+            <span>Copyright © <a href="<?= e($GLOBALS['SERVER_FORUM_URL']) ?>" target="_blank" rel="noopener"><?= e($GLOBALS['SERVER_FORUM_NAME']) ?></a> 2016 - <?= date('Y') ?></span>
             <span><i class="fas fa-code"></i> Integration made by <a href="https://github.com/Dolly132" title="Integration made by Dolly" target="_blank" rel="noopener">Dolly</a></span>
             <span>Co-Edited by <a href="https://github.com/Rushaway/" title="Rushaway's GitHub Profile" target="_blank" rel="noopener">.Rushaway</a></span>
         </div>

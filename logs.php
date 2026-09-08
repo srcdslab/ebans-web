@@ -64,7 +64,7 @@
     $resultsRealCount = $query->num_rows;
     $query->free();
 
-    $url = $_SERVER['REQUEST_URI'];
+    $url = e($_SERVER['REQUEST_URI']);
     if (str_contains($url, '&page')) {
         $url = substr($url, 0, strpos($url, '&page'));
     }
@@ -149,14 +149,14 @@
                                     $dateFormated = $date->format(DATE_TIME_FORMAT);
 
                                     echo "<tr class='row-expired'>";
-                                    echo "<td>$dateFormated</td>";
+                                    echo "<td>" . e($dateFormated) . "</td>";
                                     if (empty($clientName)) {
-                                        echo "<td><i>No nickname present</i> ($clientSteamID)</a></td>";
+                                        echo "<td><i>No nickname present</i> (" . e($clientSteamID) . ")</td>";
                                     } else {
-                                        echo "<td>$clientName ($clientSteamID)</a></td>";
+                                        echo "<td>" . e($clientName) . " (" . e($clientSteamID) . ")</td>";
                                     }
-                                    echo "<td>$adminName</td>";
-                                    echo "<td>$message</td>";
+                                    echo "<td>" . e($adminName) . "</td>";
+                                    echo "<td>" . e($message) . "</td>";
                                     echo "</tr>";
                                 }
                             ?>

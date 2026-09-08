@@ -80,7 +80,7 @@
 <header>
     <div class="header1">
         <div class="header1-icons">
-            <?php echo '<a id="steam_group" target="_blank" href="'. $GLOBALS['STEAM_GROUP'] .'" rel="noopener" title="Our Steam Group">' ?>
+            <?php echo '<a id="steam_group" target="_blank" href="'. e($GLOBALS['STEAM_GROUP']) .'" rel="noopener" title="Our Steam Group">' ?>
                 <i class="fab fa-steam-symbol"></i>
             </a>
             <a id="discord" target="_blank" href="https://discord.gg/XhByCBg" rel="noopener" data-ipstooltip="" _title="Join us on Discord">
@@ -91,7 +91,7 @@
             <?php
             if (IsAdminLoggedIn()) {
             ?>
-            <p>Welcome, &nbsp;<a href=<?php echo "\"$adminURL\""; ?> target="_blank"><i class='fa-solid fa-user'></i> <?php echo $adminName; ?></a>&nbsp; &nbsp;
+            <p>Welcome, &nbsp;<a href="<?php echo e($adminURL); ?>" target="_blank" rel="noopener"><i class='fa-solid fa-user'></i> <?php echo e($adminName); ?></a>&nbsp; &nbsp;
             <a class="button button-important" href='logout.php'><i class='fas fa-sign-out-alt'></i>
                 Logout</a></p>
             <?php } else { ?>
@@ -101,7 +101,7 @@
     </div>
     <div class="header2">
         <?php
-			echo '<a class="logo" href="'. $GLOBALS['SERVER_FORUM_URL'] .'">'
+			echo '<a class="logo" href="'. e($GLOBALS['SERVER_FORUM_URL']) .'">'
         ?>
 		<img src="./images/banner.png" alt="logo"></a>
         <div class="search_input">

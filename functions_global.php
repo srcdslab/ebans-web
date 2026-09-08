@@ -1,6 +1,28 @@
 <?php
 
     include_once('steam.php');
+
+    /* HTML-escape a value on its way into the page.
+       Everything the panel renders out of the database goes through this. The
+       EntWatch plugin writes `client_name`, `reason` and `admin_name` straight
+       from the game server, so a player nickname is fully attacker-controlled
+       and never passes through Utility::sanitizeInput(). Input-side stripping
+       is not the control here; output escaping is. */
+    function e($value): string {
+        return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /* A value crossing into JavaScript. json_encode() produces the complete
+       literal, quotes included, and the JSON_HEX_* flags keep it inert inside
+       an inline <script>. Wrap the result in e() as well when it sits inside an
+       on* attribute, because the attribute is parsed as HTML first. */
+    function js($value): string {
+        return json_encode(
+            $value,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
+    }
+
     class Utility {
         public static function sanitizeInput($input) {
             $replacements = array("'", '"', "\\", ";", "`", "--", "#", "=", ">", "<", "&", "%", "|", "^", "~", "(", ")");
@@ -20,7 +42,7 @@
             }
 
             $admins = sbpp_table('admins');
-        $sql = "SELECT * FROM `$admins` WHERE `authid`=?";
+            $sql = "SELECT * FROM `$admins` WHERE `authid`=?";
             $stmt = $GLOBALS['SBPP']->prepare($sql);
             $stmt->bind_param("s", $steamID);
             $stmt->execute();
@@ -32,7 +54,9 @@
                 return $result['user'];
             }
 
-            return "<i>Admin Deleted</i>";
+            /* Plain text, not markup: every render site escapes this value
+               now, so an <i> here would be shown to the user as literal tags. */
+            return "Admin Deleted";
     }
         
         public function IsLoginValid($steamID, $secret_key, $bInitialVerification) {
@@ -202,7 +226,7 @@
             $stmt->execute();
             $stmt->close();
 
-            echo "<script>showEbanWindowInfo(2, \"$playerName\", \"$playerSteamID\", \"$reason\");</script>";
+            echo "<script>showEbanWindowInfo(2, " . js($playerName) . ", " . js($playerSteamID) . ", " . js($reason) . ");</script>";
             return true;
         }
 
@@ -245,7 +269,7 @@
             $stmt->execute();
             $stmt->close();
 
-            echo "<script>showEbanWindowInfo(3, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$length minutes\", $id);</script>";
+            echo "<script>showEbanWindowInfo(3, " . js($playerName) . ", " . js($playerSteamID) . ", " . js($reason) . ", " . js("$length minutes") . ", " . (int) $id . ");</script>";
         }
 
         public function formatLength($seconds) {
@@ -437,7 +461,7 @@
                 die("Database prepare error occurred.");
             }
 
-            echo "<script>showEbanWindowInfo(0, \"" . htmlspecialchars($playerName, ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($playerSteamID, ENT_QUOTES, 'UTF-8') . "\", \"" . htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') . "\", \"$lengthInMinutes minutes\");</script>";
+            echo "<script>showEbanWindowInfo(0, " . js($playerName) . ", " . js($playerSteamID) . ", " . js($reason) . ", " . js("$lengthInMinutes minutes") . ");</script>";
         }        
 
         public function EditEban($id, $playerNameA, $playerSteamID, $length, $reasonA) {
@@ -510,7 +534,7 @@
             $stmt->execute();
             $stmt->close();
 
-            echo "<script>showEbanWindowInfo(1, \"$playerName\", \"$playerSteamID\", \"$reason\", \"$lengthInMinutes minutes\");</script>";
+            echo "<script>showEbanWindowInfo(1, " . js($playerName) . ", " . js($playerSteamID) . ", " . js($reason) . ", " . js("$lengthInMinutes minutes") . ");</script>";
             //echo "<script>window.location.replace('index.php?all');</script>";
         }
 
@@ -541,7 +565,7 @@
     function renderAccessDenied($message = "You do not have access to this page.") {
         echo "<div class='container'>
         <div class='error-box'>
-        <p><i class='fa-solid fa-triangle-exclamation'></i> $message</p>
+        <p><i class='fa-solid fa-triangle-exclamation'></i> " . e($message) . "</p>
         </div>
         </div>";
         include(ROOT . 'footer.php');
@@ -655,7 +679,7 @@
 
         echo "<div class='Eban-buttons'>";
 
-        $href = "ViewPlayerHistory(\"$clientSteamID\", 1);";
+        $href = e("ViewPlayerHistory(" . js($clientSteamID) . ", 1);");
 
         echo "<button onclick='$href' class='button button-light' title='View History'><i class='fa-solid fa-clock-rotate-left'></i>&nbspView History</button>";
     
@@ -664,21 +688,21 @@
 
             if ($ebanStatus == "active") {
                 if ($admin->DoesHaveFullAccess() || $adminSteamID == $admin->adminSteamID) {
-                    $editFunction = "EditFromID(\"$id\")";
+                    $editFunction = e("EditFromID(" . js((string) $id) . ")");
                     echo "<button class='button button-primary' title='Edit' onclick='$editFunction'><i class='fa-regular fa-pen-to-square'></i>&nbspEdit Details</button>";
-                    $unbanFunction = "ConfirmUnban($id, \"$clientName\", \"$clientSteamID\");";
+                    $unbanFunction = e("ConfirmUnban(" . (int) $id . ", " . js($clientName) . ", " . js($clientSteamID) . ");");
                     echo "<button class='button button-important' title='Unban' onclick='$unbanFunction'><i class='fas fa-undo fa-lg'></i>&nbspUnban</button>";
                 }
             } else {
                 if (!$Eban->IsSteamIDAlreadyBanned($clientSteamID)) {
-                    $reBanFunction = "RebanFromID(\"$id\");";
+                    $reBanFunction = e("RebanFromID(" . js((string) $id) . ");");
                     echo "<button class='button button-important' title='Reban' onclick='$reBanFunction'><i class='fas fa-redo fa-lg'></i>&nbspReban</button>";
                 }
             }
         }
 
         if ($admin->DoesHaveFullAccess()) {
-            $deleteFunction = "RemoveEbanFromDBCheck($id);";
+            $deleteFunction = "RemoveEbanFromDBCheck(" . (int) $id . ");";
             echo "<button class='button button-important' title='Delete' onclick='$deleteFunction'><i class='fa-solid fa-trash'></i>&nbspDelete Eban</button>";
         }
 
@@ -707,7 +731,7 @@
 
         echo "<li>";
         echo "<span><i class='fas fa-user'></i> Player</span>";
-        echo "<span>$clientName</span>";
+        echo "<span>" . e($clientName) . "</span>";
         echo "</li>";
 
         $steam = new Steam();
@@ -715,47 +739,47 @@
         $clientSteamID64 = $steam->SteamID_To_SteamID64($clientSteamID);
         echo "<li>";
         echo "<span><i class='fab fa-steam-symbol'></i> Steam ID</span>";
-        echo "<span>$clientSteamID</span>";
+        echo "<span>" . e($clientSteamID) . "</span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fab fa-steam-symbol'></i> Steam3 ID</span>";
-        echo "<span><a href='https://steamcommunity.com/profiles/$clientSteamID64' target='_blank'>$clientSteamID3</a></span>";
+        echo "<span><a href='https://steamcommunity.com/profiles/" . e($clientSteamID64) . "' target='_blank' rel='noopener'>" . e($clientSteamID3) . "</a></span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fab fa-steam-symbol'></i> Steam Community</span>";
-        echo "<span><a href='https://steamcommunity.com/profiles/$clientSteamID64' target='_blank'>$clientSteamID64</a></span>";
+        echo "<span><a href='https://steamcommunity.com/profiles/" . e($clientSteamID64) . "' target='_blank' rel='noopener'>" . e($clientSteamID64) . "</a></span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fas fa-play'></i> Invoked on</span>";
-        echo "<span>$startDate</span>";
+        echo "<span>" . e($startDate) . "</span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fas fa-hourglass-half'></i> Eban Duration</span>";
-        echo "<span>$length</span>";
+        echo "<span>" . e($length) . "</span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fas fa-clock'></i> Expires on</span>";
-        echo "<span>$endDate</span>";
+        echo "<span>" . e($endDate) . "</span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fas fa-question'></i> Reason</span>";
-        echo "<span>$reason</span>";
+        echo "<span>" . e($reason) . "</span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fas fa-ban'></i> Banned by Admin</span>";
-        echo "<span>$adminName</span>";
+        echo "<span>" . e($adminName) . "</span>";
         echo "</li>";
 
         echo "<li>";
         echo "<span><i class='fa-solid fa-circle-exclamation'></i> Eban Status</span>";
-        echo "<span>$status</span>";
+        echo "<span>" . e($status) . "</span>";
         echo "</li>";
 
         if ($isRemoved) {
@@ -764,17 +788,17 @@
 
             echo "<li>";
             echo "<span><i class='fas fa-play'></i> Unbanned on</span>";
-            echo "<span>$removedDate</span>";
+            echo "<span>" . e($removedDate) . "</span>";
             echo "</li>";
 
             echo "<li>";
             echo "<span><i class='fas fa-ban'></i> Unbanned By Admin</span>";
-            echo "<span>$adminNameRemoved</span>";
+            echo "<span>" . e($adminNameRemoved) . "</span>";
             echo "</li>";
 
             echo "<li>";
             echo "<span><i class='fas fa-question'></i> Unban Reason</span>";
-            echo "<span>$unban_reason</span>";
+            echo "<span>" . e($unban_reason) . "</span>";
             echo "</li>";
         }
         

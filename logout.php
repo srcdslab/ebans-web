@@ -8,6 +8,10 @@
        "Cannot modify header information - headers already sent". Clicking
        Logout left the browser fully authenticated, looking at a page that said
        "Please wait....". */
+    destroyAdminSession();
+
+    /* Also clear the pre-session login cookies, so a browser upgrading from
+       the old scheme does not keep carrying them around. */
     clearLoginCookies();
 
     header("Location: index.php?all");

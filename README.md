@@ -34,6 +34,18 @@ this panel can read them.
 The script never modifies the EntWatch 3 tables, so it can be re-run and the old
 tables can be kept around for as long as you may want to roll back.
 
+# Upgrade note: sign-in
+
+The panel signs admins in with a server-side PHP session. It previously used
+three cookies whose only secret was `SECRET_KEY`, a single constant shared by
+every user, which meant anyone holding that one value could present themselves
+as any other admin.
+
+`SECRET_KEY` is no longer used and has been removed from `config.example.php`;
+you can delete it from your `config.php`. Everyone signed in at the time of the
+upgrade is signed out once and has to sign in again. Sessions now expire 12
+hours after sign-in.
+
 # Upgrade note: full-access groups
 
 The "full access" tier -- delete an eban, read the Web Logs, manage an eban

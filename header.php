@@ -6,17 +6,13 @@
     $ip = filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP) ? $_SERVER['REMOTE_ADDR'] : '';
 
     $GLOBALS['steamID'] = "";
-    if (isset($_COOKIE['steamID']) && isset($_COOKIE['secret_key']) && $_COOKIE['secret_key'] === $GLOBALS['SECRET_KEY']) {
-        $GLOBALS['steamID'] = $_COOKIE['steamID'];
-        $admin = new Admin();
-        $admin->UpdateAdminInfo($_COOKIE['steamID']);
+    $admin = new Admin();
+    if ($admin->UpdateAdminInfo()) {
+        $GLOBALS['steamID'] = $admin->adminSteamID;
         $adminName = $admin->adminUser;
 
-        $steam = new Steam();
-        $steamID64 = $steam->SteamID_To_SteamID64($GLOBALS['steamID']);
+        $steamID64 = Steam::SteamID_To_SteamID64($GLOBALS['steamID']);
         $adminURL = "https://steamcommunity.com/profiles/$steamID64";
-    } else {
-        clearLoginCookies();
     }
 ?>
 
@@ -122,7 +118,7 @@
                 if (IsAdminLoggedIn()) {
                     echo "<li><a id='addEban' class='not-active' id='add' href='manage.php?add'><i class='fas fa-user-times'></i> &nbspAdd Eban</a></li>"; 
                     $admin = new Admin();
-                    $admin->UpdateAdminInfo($_COOKIE['steamID']);
+                    $admin->UpdateAdminInfo();
                     if ($admin->DoesHaveFullAccess()) {
             ?>
             <li><a class="not-active" id="weblogs" href="logs.php?web"><i class='far fa-hdd'></i> &nbspWeb Logs</a></li>

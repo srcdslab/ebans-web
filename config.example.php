@@ -14,7 +14,6 @@ define('SBPP_DB_PREFIX', 'sb'); // The table prefix for SourceBans
 define('SBPP_DB_PORT', '3306'); // The SQL port (Default: 3306)
 define('SBPP_DB_CHARSET', 'utf8mb4'); // The Database charset (Default: utf8)
 
-define('SECRET_KEY', 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'); // Used to prevent cookies injection
 
 define('DATE_TIME_ZONE', 'GMT+2');
 define('DATE_TIME_FORMAT', 'Y-m-d H:i:s');

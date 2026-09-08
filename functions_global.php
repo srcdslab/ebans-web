@@ -104,6 +104,33 @@
 
     startPanelSession();
 
+    /* The requested eban duration, as whole minutes, or null if unusable.
+
+       The form sends seconds. 0 means permanent. Everything else has to be a
+       positive whole number of minutes: the old code did `$length / 60` and
+       bound the float as an integer, so ?length=90 became float(1.5) and was
+       silently truncated to 1 -- an eban 30 seconds shorter than asked for,
+       with a stored expiry that disagreed with the stored duration. */
+    function requestedDurationMinutes($rawSeconds): ?int {
+        $seconds = filter_var($rawSeconds, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 0, 'max_range' => 60 * 60 * 24 * 365 * 5],
+        ]);
+
+        if ($seconds === false) {
+            return null;
+        }
+
+        if ($seconds === 0) {
+            return 0; /* permanent */
+        }
+
+        if ($seconds % 60 !== 0) {
+            return null;
+        }
+
+        return intdiv($seconds, 60);
+    }
+
     /* The per-session CSRF token.
 
        Every state-changing endpoint used to be a GET with no token at all, so
@@ -373,6 +400,10 @@
 
             $Eban = new Eban();
             $resultsB = $Eban->getEbanInfoFromID($id);
+            if ($resultsB === null) {
+                return false;
+            }
+
             $playerName = $resultsB['client_name'];
             $playerSteamID = $resultsB['client_steamid'];
             $length = $resultsB['duration_minutes'];
@@ -386,7 +417,15 @@
             $time_unban = time();
             $stmt->bind_param("sssii", $adminName, $adminSteamID, $reason, $time_unban, $id);
             $stmt->execute();
+            $closed = ($stmt->affected_rows > 0);
             $stmt->close();
+
+            /* The guard above is what makes a second unban a no-op. Without
+               this check the no-op was still written to web_logs and still
+               reported as a success. */
+            if (!$closed) {
+                return false;
+            }
 
             // Insert into web_logs statement
             $message = "Eban Removed (was $length minutes. Reason: $reason)";
@@ -412,6 +451,10 @@
             }
 
             $resultsC = $this->getEbanInfoFromID($id);
+            if ($resultsC === null) {
+                return false;
+            }
+
             $playerName = $resultsC['client_name'];
             $playerSteamID = $resultsC['client_steamid'];
             $length = $resultsC['duration_minutes'];
@@ -427,7 +470,13 @@
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("i", $id);
             $stmt->execute();
+            $deleted = ($stmt->affected_rows > 0);
             $stmt->close();
+
+            /* Nothing was deleted, so nothing happened worth logging. */
+            if (!$deleted) {
+                return false;
+            }
 
             $adminName = $admin->adminUser;
             $time = time();
@@ -571,22 +620,18 @@
             return $counts;
         }
 
-        public function addNewEban($playerNameA, $playerSteamID, $length, $reasonA) {
+        /* $lengthInMinutes is already whole minutes -- requestedDurationMinutes()
+           validated it at the request boundary. It used to arrive as seconds
+           and be divided by 60 here, producing a float that bind_param("i")
+           truncated. */
+        public function addNewEban($playerNameA, $playerSteamID, int $lengthInMinutes, $reasonA) {
             $admin = new Admin();
             $admin->UpdateAdminInfo();
             $adminName = $admin->adminUser;
             $adminSteamID = $admin->adminSteamID;
-            $adminID = $admin->adminID;
 
             $playerName = Utility::sanitizeInput($playerNameA);
             $reason = Utility::sanitizeInput($reasonA);
-            $lengthInMinutes = ($length / 60);
-
-            if ($length <= -1) {
-                $lengthInMinutes = 30;
-            } elseif ($length == 0) {
-                $lengthInMinutes = 0;
-            }
 
             /* EntWatch 4 records both ends of the eban: `expires_at` stays NULL
                for permanent and session ebans. */
@@ -646,7 +691,8 @@
             echo "<script>showEbanWindowInfo(0, " . js($playerName) . ", " . js($playerSteamID) . ", " . js($reason) . ", " . js("$lengthInMinutes minutes") . ");</script>";
         }        
 
-        public function EditEban($id, $playerNameA, $playerSteamID, $length, $reasonA) {
+        /* As addNewEban(): $lengthInMinutes is whole minutes, already validated. */
+        public function EditEban($id, $playerNameA, $playerSteamID, int $lengthInMinutes, $reasonA) {
             $admin = new Admin();
             $admin->UpdateAdminInfo();
             $adminName = $admin->adminUser;
@@ -655,21 +701,17 @@
             // Escape single quotes by removing them
             $playerName = Utility::sanitizeInput($playerNameA);
             $reason = Utility::sanitizeInput($reasonA);
-            $lengthInMinutes = ($length / 60);
 
             $info = $this->getEbanInfoFromID($id);
-
-            if ($length <= -1) {
-                $lengthInMinutes = 30;
-            } elseif ($length == 0) {
-                $lengthInMinutes = 0;
+            if ($info === null) {
+                return;
             }
 
             /* The eban keeps the date it was handed out; only its end moves. */
             $expires_at = ($lengthInMinutes > 0) ? ($info['issued_at'] + ($lengthInMinutes * 60)) : null;
 
             $time = time();
-            if ($length >= 1) {
+            if ($lengthInMinutes >= 1) {
                 if ($expires_at < $time) {
                     $this->UnbanByID($id, "Giving another chance");
                     echo "<script>window.location.replace('index.php?all');</script>";

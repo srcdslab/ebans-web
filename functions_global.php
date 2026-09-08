@@ -493,7 +493,13 @@
             echo "<script>showEbanWindowInfo(3, " . js($playerName) . ", " . js($playerSteamID) . ", " . js($reason) . ", " . js("$length minutes") . ", " . (int) $id . ");</script>";
         }
 
-        public function formatLength($seconds) {
+        public function formatLength($seconds): string {
+            /* A negative value matched no branch below, so this returned null
+               and the caller rendered an empty duration. */
+            if ($seconds < 0) {
+                return "Session";
+            }
+
             /* if less than one minute */
             if ($seconds == 0) {
                 return "Permanent";
@@ -561,6 +567,8 @@
                 }
                 return "$months $monthsPhrase, $days $daysPhrase";
             }
+
+            return "Permanent";
         }
 
         public function getEbanInfoFromID($id) {

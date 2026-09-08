@@ -3,6 +3,23 @@
     include_once('connect.php');
     include_once('functions_global.php');
 
+    /* A string field from the POST body.
+
+       This replaces filter_input(..., FILTER_SANITIZE_STRING), which is
+       deprecated since PHP 8.1:
+
+           Deprecated: Constant FILTER_SANITIZE_STRING is deprecated since 8.1,
+           use htmlspecialchars() instead
+
+       It was also the wrong tool: it stripped tags on input where the real
+       need is escaping on output, which e() now does at every render site. */
+    function postString(string $name): string
+    {
+        $value = $_POST[$name] ?? '';
+
+        return is_string($value) ? $value : '';
+    }
+
     function sanitizeString($input)
     {
         // Replace problematic characters with an empty string
@@ -14,8 +31,16 @@
     /* Reading a row back is a GET and stays one. Everything below this point
        changes state, so it is POST-only and carries a CSRF token. */
     if (isset($_GET['id']) && !isset($_GET['reban']) && !isset($_GET['edit'])) {
-        $id = filter_input(INPUT_GET, 'id', FILTER_SANITIZE_NUMBER_INT);
-        showEbanInfo($id);
+        /* FILTER_SANITIZE_NUMBER_INT returns "" for `?id=`, and showEbanInfo()
+           is typed `int`, so that was a fatal TypeError:
+           "Argument #1 ($id) must be of type int, string given". */
+        $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if (is_int($id)) {
+            showEbanInfo($id);
+        }
     }
 
     if (isset($_POST['oldid'])) {
@@ -28,7 +53,13 @@
         $admin = new Admin();
         $admin->UpdateAdminInfo();
 
-        $id = filter_input(INPUT_POST, 'oldid', FILTER_SANITIZE_NUMBER_INT);
+        $id = filter_input(INPUT_POST, 'oldid', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if (!is_int($id)) {
+            die();
+        }
 
         $Eban = new Eban();
         $info = $Eban->getEbanInfoFromID($id);
@@ -65,9 +96,9 @@
         }
 
         // Sanitize input
-        $playerName = sanitizeString(filter_input(INPUT_POST, 'playerName', FILTER_SANITIZE_STRING));
-        $playerSteamID = filter_input(INPUT_POST, 'playerSteamID', FILTER_SANITIZE_STRING);
-        $reason = sanitizeString(filter_input(INPUT_POST, 'reason', FILTER_SANITIZE_STRING));
+        $playerName = sanitizeString(postString('playerName'));
+        $playerSteamID = postString('playerSteamID');
+        $reason = sanitizeString(postString('reason'));
 
         $icon = "<i class='fa-solid fa-xmark'></i>&nbsp";
         if (empty($playerName)) {
@@ -123,10 +154,16 @@
             die();
         }
 
-        $id = filter_input(INPUT_POST, 'id', FILTER_SANITIZE_NUMBER_INT);
-        $playerName = sanitizeString(filter_input(INPUT_POST, 'playerName', FILTER_SANITIZE_STRING));
-        $playerSteamID = filter_input(INPUT_POST, 'playerSteamID', FILTER_SANITIZE_STRING);
-        $reason = sanitizeString(filter_input(INPUT_POST, 'reason', FILTER_SANITIZE_STRING));
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if (!is_int($id)) {
+            die();
+        }
+        $playerName = sanitizeString(postString('playerName'));
+        $playerSteamID = postString('playerSteamID');
+        $reason = sanitizeString(postString('reason'));
 
         $icon = "<i class='fa-solid fa-xmark'></i>&nbsp";
         if (empty($playerName)) {
@@ -214,7 +251,13 @@
             die();
         }
 
-        $id = filter_input(INPUT_POST, 'deleteid', FILTER_SANITIZE_NUMBER_INT);
+        $id = filter_input(INPUT_POST, 'deleteid', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if (!is_int($id)) {
+            die();
+        }
         $Eban = new Eban();
         $Eban->RemoveEbanFromDB($id);
         die();

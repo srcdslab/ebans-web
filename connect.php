@@ -10,39 +10,54 @@ if (!file_exists(ROOT.'/config.php')) {
 }
 require_once(ROOT.'/config.php');
 
-$GLOBALS['DB'] = mysqli_connect(
-                    EBAN_DB_HOST,
-                    EBAN_DB_USER,
-                    EBAN_DB_PASSWORD,
-                    EBAN_DB_NAME,
-                    (int) EBAN_DB_PORT
-                    );
+/*
+ * Since PHP 8.1 mysqli reports errors by throwing, not by returning false, so
+ * the `if (!$GLOBALS['DB'])` checks that used to live here could never run.
+ * What happened instead was an uncaught mysqli_sql_exception -- and with
+ * display_errors on, its stack trace lists the mysqli_connect() arguments,
+ * database password included.
+ *
+ * The mode is now set explicitly rather than relied on, the exception is
+ * caught, the detail goes to the error log, and the browser gets a generic
+ * message.
+ */
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// Check Eban DB connection
-if (!$GLOBALS['DB']) {
-    die('Main Database Connection error: ' . mysqli_connect_error());
+function connectDatabase(string $label, string $host, string $user, string $password, string $name, int $port, string $charset): mysqli
+{
+    try {
+        $connection = mysqli_connect($host, $user, $password, $name, $port);
+        /* EntWatch 4 creates its table as utf8mb4, so the connection has to
+           match or player names outside the BMP come back mangled. */
+        mysqli_set_charset($connection, $charset);
+
+        return $connection;
+    } catch (mysqli_sql_exception $e) {
+        error_log("$label database connection failed: " . $e->getMessage());
+        http_response_code(503);
+        die('The database is currently unavailable. Please try again later.');
+    }
 }
 
-// EntWatch 4 creates its table as utf8mb4, so the connection has to match or
-// player names outside the BMP come back mangled.
-mysqli_set_charset($GLOBALS['DB'], EBAN_DB_CHARSET);
+$GLOBALS['DB'] = connectDatabase(
+    'Eban',
+    EBAN_DB_HOST,
+    EBAN_DB_USER,
+    EBAN_DB_PASSWORD,
+    EBAN_DB_NAME,
+    (int) EBAN_DB_PORT,
+    EBAN_DB_CHARSET
+);
 
-
-$GLOBALS['SBPP'] = mysqli_connect(
-                            SBPP_DB_HOST,
-                            SBPP_DB_USER,
-                            SBPP_DB_PASSWORD,
-                            SBPP_DB_NAME,
-                            (int) SBPP_DB_PORT);
-
-// Check SBPP DB connection
-if (!$GLOBALS['SBPP']) {
-    die('SBPP Database Connection error: ' . mysqli_connect_error());
-}
-
-// Same reasoning as the eban connection above: without this, admin names come
-// back in whatever the server default happens to be.
-mysqli_set_charset($GLOBALS['SBPP'], SBPP_DB_CHARSET);
+$GLOBALS['SBPP'] = connectDatabase(
+    'SourceBans',
+    SBPP_DB_HOST,
+    SBPP_DB_USER,
+    SBPP_DB_PASSWORD,
+    SBPP_DB_NAME,
+    (int) SBPP_DB_PORT,
+    SBPP_DB_CHARSET
+);
 
 
 /*

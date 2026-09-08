@@ -63,7 +63,24 @@
 --    5. Once the panel and the plugin are both happy, drop the old tables
 --       manually (section 5, deliberately left commented out).
 --
---  The script is idempotent: re-running it does not duplicate rows.
+--  The script is idempotent. An eban is identified by
+--  `client_steamid` + `issued_at`; EntWatch never issues two ebans to one
+--  SteamID in the same second. That key is enforced twice:
+--
+--    * within a run, by a UNIQUE index on the staging table, so a row present
+--      in both source tables (an EntWatch 3 move that only half completed) or
+--      duplicated inside one source table is collapsed before the target table
+--      is touched;
+--    * across runs, by the NOT EXISTS guard in section 2.c, which tests
+--      against rows committed by earlier runs.
+--
+--  Both are needed. NOT EXISTS alone is not enough: it reads the same table
+--  the statement is writing, and MySQL does not define whether rows inserted
+--  by the statement are visible to it, so two staged copies of one eban could
+--  both be inserted.
+--
+--  The copy runs inside a transaction, so an interrupted run leaves the target
+--  table untouched rather than half populated.
 --
 --  To roll back, drop `EntWatch_Ebans` and restore the EntWatch 3 plugin. The
 --  source tables are never modified, so nothing else has to be undone.
@@ -154,13 +171,21 @@ CREATE TEMPORARY TABLE `ew3_migration_staging` (
     `unban_reason`        VARCHAR(64)  NULL,
     `unban_admin_name`    VARCHAR(32)  NULL,
     `unban_admin_steamid` VARCHAR(64)  NULL,
-    INDEX `idx_dedup` (`client_steamid`, `issued_at`)
+    UNIQUE KEY `uniq_eban` (`client_steamid`, `issued_at`)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+--  The staged copy is all-or-nothing. `CREATE`/`DROP TEMPORARY TABLE` stay
+--  outside it: temporary-table DDL cannot be rolled back.
+
+START TRANSACTION;
 
 --  2.a  Enforced ebans. `timestamp_unban` is normally NULL here; a row that
 --       does carry one was lifted by the web panel and keeps that record.
+--
+--       INSERT IGNORE drops a repeat of an eban already staged -- i.e. the
+--       same source table holding the same (client_steamid, issued_at) twice.
 
-INSERT INTO `ew3_migration_staging`
+INSERT IGNORE INTO `ew3_migration_staging`
     (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`,
      `duration_minutes`, `issued_at`, `expires_at`, `reason`,
      `unbanned_at`, `unban_reason`, `unban_admin_name`, `unban_admin_steamid`)
@@ -191,8 +216,13 @@ FROM `EntWatch_Current_Eban`;
 --       builds did not always write it) are closed at their expiry, or at
 --       their issue time when there is no expiry, and attributed to the
 --       server the way the EntWatch 4 expiry cleanup does it.
+--
+--       REPLACE, not INSERT IGNORE: an eban that somehow exists in *both*
+--       source tables is an EntWatch 3 move that did not finish deleting the
+--       enforced copy, so the row here -- the one carrying the unban
+--       bookkeeping -- is the newer truth and must win over the 2.a copy.
 
-INSERT INTO `ew3_migration_staging`
+REPLACE INTO `ew3_migration_staging`
     (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`,
      `duration_minutes`, `issued_at`, `expires_at`, `reason`,
      `unbanned_at`, `unban_reason`, `unban_admin_name`, `unban_admin_steamid`)
@@ -216,9 +246,9 @@ FROM `EntWatch_Old_Eban`;
 --  server filter: append   WHERE `server` = 'YOUR_SERVER_NAME'
 
 --  2.c  Move the staged rows in, oldest first, skipping anything a previous
---       run already inserted. `client_steamid` + `issued_at` identifies an
---       eban: EntWatch never issues two ebans to one SteamID in the same
---       second.
+--       run already inserted. Duplicates *within* this run were already
+--       collapsed by the staging table's UNIQUE key, which is what makes this
+--       NOT EXISTS safe -- on its own it only sees rows committed earlier.
 
 INSERT INTO `EntWatch_Ebans`
     (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`,
@@ -235,6 +265,8 @@ WHERE NOT EXISTS (
       AND e.`issued_at`      = s.`issued_at`
 )
 ORDER BY s.`issued_at` ASC;
+
+COMMIT;
 
 DROP TEMPORARY TABLE `ew3_migration_staging`;
 
@@ -290,7 +322,26 @@ CREATE TABLE IF NOT EXISTS `web_logs` (
 --       OR (`duration_minutes` > 0 AND `expires_at` IS NULL)
 --       OR (`duration_minutes` <= 0 AND `expires_at` IS NOT NULL);
 --
---  4.d  Eyeball the ten most recent ebans.
+--  4.d  No eban may appear twice. This is the check 4.a cannot make: an equal
+--       number of dropped and duplicated rows leaves the totals matching.
+--       Expect zero rows.
+--
+--    SELECT `client_steamid`, `issued_at`, COUNT(*) AS copies
+--    FROM `EntWatch_Ebans`
+--    GROUP BY `client_steamid`, `issued_at`
+--    HAVING copies > 1;
+--
+--  4.e  Permanent ebans that came from `EntWatch_Old_Eban` without any unban
+--       bookkeeping are closed at their own issue time by section 2.b -- there
+--       is no better timestamp available, and leaving `unbanned_at` NULL would
+--       resurrect them as live permanent ebans. The panel then shows
+--       "Unbanned on" equal to "Invoked on", which is expected, not a bug.
+--       This lists them so the count is known before anyone reports it.
+--
+--    SELECT COUNT(*) AS closed_at_issue_time FROM `EntWatch_Ebans`
+--    WHERE `unbanned_at` = `issued_at` AND `unban_admin_steamid` = 'SERVER';
+--
+--  4.f  Eyeball the ten most recent ebans.
 --
 --    SELECT `id`, `client_name`, `client_steamid`, `duration_minutes`,
 --           FROM_UNIXTIME(`issued_at`)   AS issued,

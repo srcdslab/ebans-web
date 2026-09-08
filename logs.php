@@ -21,8 +21,8 @@
     $resultsPerPage = 20;
     $resultsStart = (($currentPage - 1) * $resultsPerPage);
 
-    $sql = "SELECT * FROM ";
-    $sql .= "`web_logs`";
+    $logs = eban_table('web_logs');
+    $sql = "SELECT * FROM `$logs`";
 
     if (isset($_GET['s'])) {
         $input = $_GET['s'];

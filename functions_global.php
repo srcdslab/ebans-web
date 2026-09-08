@@ -19,7 +19,8 @@
                 return "CONSOLE";
             }
 
-            $sql = "SELECT * FROM `sb_admins` WHERE `authid`=?";
+            $admins = sbpp_table('admins');
+        $sql = "SELECT * FROM `$admins` WHERE `authid`=?";
             $stmt = $GLOBALS['SBPP']->prepare($sql);
             $stmt->bind_param("s", $steamID);
             $stmt->execute();
@@ -39,7 +40,8 @@
             return false;
         }
 
-        $sql = "SELECT aid FROM sb_admins WHERE authid = ?";
+        $admins = sbpp_table('admins');
+        $sql = "SELECT aid FROM `$admins` WHERE authid = ?";
         $stmt = $GLOBALS['SBPP']->prepare($sql);
         $stmt->bind_param("s", $steamID);
         $stmt->execute();
@@ -55,7 +57,8 @@
             return false;
         }
 
-        $sql = "SELECT * FROM `sb_admins` WHERE `authid`=?";
+        $admins = sbpp_table('admins');
+        $sql = "SELECT * FROM `$admins` WHERE `authid`=?";
         $stmt = $GLOBALS['SBPP']->prepare($sql);
         $stmt->bind_param("s", $steamID);
         $stmt->execute();
@@ -84,7 +87,8 @@
                 return false;
             }
 
-            $sql = "SELECT `aid`, `gid`, `authid`, `user` FROM `sb_admins` WHERE `authid`=?";
+            $admins = sbpp_table('admins');
+            $sql = "SELECT `aid`, `gid`, `authid`, `user` FROM `$admins` WHERE `authid`=?";
             $stmt = $GLOBALS['SBPP']->prepare($sql);
             $stmt->bind_param("s", $steamID);
             $stmt->execute();
@@ -106,18 +110,15 @@
             return true;
         }
 
+        /* Full access -- delete an eban, read the web logs, manage an eban
+           somebody else issued. `GID_STAFF` grants login and management of
+           one's own ebans; this is the additional tier on top of it. */
         public function DoesHaveFullAccess() {
             if (!isset($_COOKIE['steamID'])) {
                 return false;
             }
 
-            // acceptatable group ids
-            $groups = array(1, 3, 4);
-            if (in_array($this->adminGroupID, $groups)) {
-                return true;
-            }
-
-            return false;
+            return in_array($this->adminGroupID, GID_ADMIN);
         }
 
     }
@@ -183,7 +184,8 @@
             /* Closing the eban is a single update now: EntWatch 4 has no
                separate table for lifted ebans. The `unbanned_at IS NULL` guard
                keeps a second unban from overwriting who lifted it first. */
-            $sql = "UPDATE `EntWatch_Ebans` SET `unban_admin_name` = ?, `unban_admin_steamid` = ?, `unban_reason` = ?, `unbanned_at` = ? WHERE `id` = ? AND `unbanned_at` IS NULL";
+            $ebans = eban_table('ebans');
+            $sql = "UPDATE `$ebans` SET `unban_admin_name` = ?, `unban_admin_steamid` = ?, `unban_reason` = ?, `unbanned_at` = ? WHERE `id` = ? AND `unbanned_at` IS NULL";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $time_unban = time();
             $stmt->bind_param("sssii", $adminName, $adminSteamID, $reason, $time_unban, $id);
@@ -192,7 +194,8 @@
 
             // Insert into web_logs statement
             $message = "Eban Removed (was $length minutes. Reason: $reason)";
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`) VALUES (?, ?, ?, ?, ?, ?)";
+            $logs = eban_table('web_logs');
+            $sql = "INSERT INTO `$logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`) VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $time = time();
             $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
@@ -223,7 +226,8 @@
             $message = "Eban Deleted (Player Name: $playerName, Player SteamID: $playerSteamID, was $length minutes. Issued for: $reason. Eban was $status)";
 
             // Use prepared statement for DELETE
-            $sql = "DELETE FROM `EntWatch_Ebans` WHERE `id` = ?";
+            $ebans = eban_table('ebans');
+            $sql = "DELETE FROM `$ebans` WHERE `id` = ?";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("i", $id);
             $stmt->execute();
@@ -233,7 +237,8 @@
             $time = time();
 
             // Use prepared statement for INSERT INTO web_logs
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)
+            $logs = eban_table('web_logs');
+            $sql = "INSERT INTO `$logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)
                     VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
@@ -314,7 +319,8 @@
         }
 
         public function getEbanInfoFromID($id) {
-            $sql = "SELECT * FROM `EntWatch_Ebans` WHERE `id`=?";
+            $ebans = eban_table('ebans');
+            $sql = "SELECT * FROM `$ebans` WHERE `id`=?";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("i", $id);
             $stmt->execute();
@@ -328,7 +334,8 @@
         }
 
         public function GetEbansNumber($steamID) {
-            $sql = "SELECT COUNT(*) AS `total` FROM `EntWatch_Ebans` WHERE `client_steamid`=?";
+            $ebans = eban_table('ebans');
+            $sql = "SELECT COUNT(*) AS `total` FROM `$ebans` WHERE `client_steamid`=?";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("s", $steamID);
             $stmt->execute();
@@ -344,7 +351,8 @@
            served out are still credited to them, the ones they were let off
            are not. The plugin writes 'Expired' when it closes a row itself. */
         public function GetRealEbansNumber($steamID) {
-            $sql = "SELECT COUNT(*) AS `total` FROM `EntWatch_Ebans`
+            $ebans = eban_table('ebans');
+            $sql = "SELECT COUNT(*) AS `total` FROM `$ebans`
                     WHERE `client_steamid`=? AND (`unbanned_at` IS NULL OR `unban_reason` = 'Expired')";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("s", $steamID);
@@ -384,7 +392,8 @@
             }
 
             // Prepare and execute INSERT INTO EntWatch_Ebans
-            $sql = "INSERT INTO `EntWatch_Ebans`
+            $ebans = eban_table('ebans');
+            $sql = "INSERT INTO `$ebans`
                     (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `reason`, `duration_minutes`, `issued_at`, `expires_at`)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt = $GLOBALS['DB']->prepare($sql)) {
@@ -413,7 +422,8 @@
             $time = time();
 
             // Prepare and execute INSERT INTO web_logs
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)
+            $logs = eban_table('web_logs');
+            $sql = "INSERT INTO `$logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`)
                     VALUES (?, ?, ?, ?, ?, ?)";
             if ($stmt = $GLOBALS['DB']->prepare($sql)) {
                 $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
@@ -462,7 +472,8 @@
             }
 
             // Update statement
-            $sql = "UPDATE `EntWatch_Ebans` SET `client_name` = ?, `client_steamid` = ?, `reason` = ?, `duration_minutes` = ?, `expires_at` = ? WHERE `id` = ?";
+            $ebans = eban_table('ebans');
+            $sql = "UPDATE `$ebans` SET `client_name` = ?, `client_steamid` = ?, `reason` = ?, `duration_minutes` = ?, `expires_at` = ? WHERE `id` = ?";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("sssiii", $playerName, $playerSteamID, $reason, $lengthInMinutes, $expires_at, $id);
             $stmt->execute();
@@ -492,7 +503,8 @@
             $message .= " )";
 
             // Insert statement
-            $sql = "INSERT INTO `web_logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`) VALUES (?, ?, ?, ?, ?, ?)";
+            $logs = eban_table('web_logs');
+            $sql = "INSERT INTO `$logs` (`message`, `admin_name`, `admin_steamid`, `client_name`, `client_steamid`, `time_stamp`) VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("sssssi", $message, $adminName, $adminSteamID, $playerName, $playerSteamID, $time);
             $stmt->execute();
@@ -505,7 +517,8 @@
         /* Mirrors how the plugin decides a client is restricted: the eban has
            not been lifted and has either no expiry or one still ahead of us. */
         public function IsSteamIDAlreadyBanned($steamID) {
-            $sql = "SELECT 1 FROM `EntWatch_Ebans`
+            $ebans = eban_table('ebans');
+            $sql = "SELECT 1 FROM `$ebans`
                     WHERE `client_steamid`=? AND `unbanned_at` IS NULL
                       AND (`expires_at` IS NULL OR `expires_at` > ?)
                     LIMIT 1";

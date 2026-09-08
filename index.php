@@ -55,7 +55,8 @@
         $conditions[] = "`$method` LIKE '%$search%'";
     }
 
-    $sql = 'SELECT * FROM `EntWatch_Ebans` ';
+    $ebans = eban_table('ebans');
+    $sql = "SELECT * FROM `$ebans` ";
     if (!empty($conditions)) {
         $sql .= 'WHERE ' . implode(' AND ', $conditions) . ' ';
     }

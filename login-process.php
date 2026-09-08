@@ -1,7 +1,7 @@
 <?php
 
-    include('connect.php');
-    include('functions_global.php'); 
+    include_once('connect.php');
+    include_once('functions_global.php');
 
     $params = [
         'openid.assoc_handle' => $_GET['openid_assoc_handle'],
@@ -61,7 +61,8 @@
 
         // Create an unique cookie based on sbpp aid for each user
         // Aid is the safer option to use as a cookie since it does not have any personal information
-        $sql = "SELECT aid FROM sb_admins WHERE authid = ?";
+        $admins = sbpp_table('admins');
+        $sql = "SELECT aid FROM `$admins` WHERE authid = ?";
         $stmt = $GLOBALS['SBPP']->prepare($sql);
         $stmt->bind_param("s", $steamID32);
         $stmt->execute();

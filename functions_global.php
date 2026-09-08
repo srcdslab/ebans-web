@@ -14,24 +14,6 @@
         public $adminSteamID = "";
         public $adminUser = "";
         
-        public function getAdminIDFromName($name) {
-            $name = $GLOBALS['SBPP']->real_escape_string($name);
-            $query = "SELECT `aid` FROM `sb_admins` WHERE `user` LIKE '%$name%'";
-            $queryHndl = $GLOBALS['SBPP']->query($query);
-
-            if ($queryHndl) {
-                $result = $queryHndl->fetch_assoc();
-                $queryHndl->free_result();
-                if ($result) {
-                    return $result['aid'];
-                }
-            } else {
-                die(); // Database error
-            }
-
-            return -1; // No matching admin found
-        }
-
         public function GetAdminNameFromSteamID($steamID) {
             if (!str_contains($steamID, "STEAM")) {
                 return "CONSOLE";

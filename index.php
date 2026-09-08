@@ -59,11 +59,14 @@
     $ebans = eban_table('ebans');
     $where = empty($conditions) ? '' : ' WHERE ' . implode(' AND ', $conditions);
 
-    $sql_query = dbSelect($GLOBALS['DB'], "SELECT * FROM `$ebans`$where", $types, $params);
-    $resultsCount = $sql_query->num_rows;
+    /* COUNT(*), not SELECT * plus num_rows: the old form transferred and
+       buffered every row in the table just to learn how many there were, then
+       threw them away and re-ran the query with a LIMIT. */
+    $countQuery = dbSelect($GLOBALS['DB'], "SELECT COUNT(*) AS `total` FROM `$ebans`$where", $types, $params);
+    $resultsCount = (int) $countQuery->fetch_assoc()['total'];
     $totalPages = (int) ceil($resultsCount / $resultsPerPage);
 
-    $sql_query->free();
+    $countQuery->free();
     if ($totalPages != 0 && $currentPage > $totalPages) {
         $currentPage = $totalPages;
     }
@@ -101,6 +104,12 @@
         $results1 = $query->fetch_all(MYSQLI_ASSOC);
         $resultsRealCount = $query->num_rows;
         $query->free();
+
+        /* Resolve for the whole page up front. Each of these used to be one
+           query per row -- three of them, plus the auth lookups repeated
+           inside GetRowInfo(). */
+        Admin::primeAdminNames(array_column($results1, 'admin_steamid'));
+        $ebanCounts = (new Eban())->GetEbanCountsFor(array_column($results1, 'client_steamid'));
 
         $url = $_SERVER['REQUEST_URI'];
         if (str_contains($url, '&page')) {
@@ -210,8 +219,8 @@
                                             $class = ($duration == 0) ? "row-permanent" : "row-active";
                                         }
 
-                                        $count = $Eban->GetEbansNumber($clientSteamID);
-                                        $realcount = $Eban->GetRealEbansNumber($clientSteamID);
+                                        $count = $ebanCounts[$clientSteamID]['total'] ?? 0;
+                                        $realcount = $ebanCounts[$clientSteamID]['real'] ?? 0;
 
                                         $dateA->setTimestamp($issued_at);
                                         $dateB = $dateA->format(DATE_TIME_FORMAT);

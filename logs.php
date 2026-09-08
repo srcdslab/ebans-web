@@ -12,38 +12,54 @@
         renderAccessDenied();
     }
 
-    if (isset($_GET['page'])) {
-        $currentPage = ($_GET['page'] <= 0) ? 1 : $_GET['page'];
-    } else {
-        $currentPage = 1;
-    }
-
     $resultsPerPage = 20;
-    $resultsStart = (($currentPage - 1) * $resultsPerPage);
+    $currentPage = currentPageFromRequest();
 
     $logs = eban_table('web_logs');
-    $sql = "SELECT * FROM `$logs`";
 
-    if (isset($_GET['s'])) {
-        $input = $_GET['s'];
-        $method = formatMethod(intval($_GET['m']));
-        $sql .= " WHERE `$method`=$input ";
+    /* The search value is bound; the only part of the clause that varies is
+       the column name, which comes from formatMethod()'s allowlist.
+
+       This used to read `WHERE `$method`=$input` with $input taken raw from
+       the query string -- unquoted, unescaped and unbound. Besides being
+       injectable, it meant the feature never worked: `WHERE client_name=Bob`
+       asks MySQL for a column named Bob. Matching now uses LIKE, the same way
+       the eban list does, so the shared search modal behaves the same on both
+       pages. */
+    $where = '';
+    $types = '';
+    $params = array();
+
+    $method = formatMethod(searchMethodFromRequest());
+    if (isset($_GET['s']) && is_string($_GET['s']) && $method !== null) {
+        $where = " WHERE `$method` LIKE ?";
+        $types = 's';
+        $params[] = '%' . escapeLikeOperand($_GET['s']) . '%';
     }
 
-    $sql_query = $GLOBALS['DB']->query($sql);
+    $sql_query = dbSelect($GLOBALS['DB'], "SELECT * FROM `$logs`$where", $types, $params);
     $resultsCount = $sql_query->num_rows;
-    $totalPages = ceil(($resultsCount / $resultsPerPage));
+    $totalPages = (int) ceil($resultsCount / $resultsPerPage);
 
     $sql_query->free();
     if ($totalPages != 0 && $currentPage > $totalPages) {
         $currentPage = $totalPages;
     }
 
+    /* After the clamp, so a `?page=` past the end lands on the last page
+       instead of an empty one. */
+    $resultsStart = ($currentPage - 1) * $resultsPerPage;
+
     echo "<script>setActive(4); setModalSearch(\"web\");</script>";
 ?>
 
     <?php
-    $query = $GLOBALS['DB']->query($sql . "ORDER BY time_stamp DESC LIMIT $resultsStart, $resultsPerPage");
+    $query = dbSelect(
+        $GLOBALS['DB'],
+        "SELECT * FROM `$logs`$where ORDER BY `time_stamp` DESC LIMIT ?, ?",
+        $types . 'ii',
+        array_merge($params, [$resultsStart, $resultsPerPage])
+    );
     $results1 = $query->fetch_all(MYSQLI_ASSOC);
     $resultsRealCount = $query->num_rows;
     $query->free();

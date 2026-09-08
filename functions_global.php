@@ -564,9 +564,64 @@
         return false;
     }
 
-    function formatMethod(int $method) {
-    $methods = ["", "client_steamid", "client_name", "", "admin_name", "admin_steamid"];
-    return $methods[$method];
+    /* Maps the search modal's `m` value to a column name.
+       Returns null for anything not on the list -- including the gaps at 0 and
+       3, and any out-of-range value. Callers must treat null as "no search";
+       indexing the old flat array with an unchecked `intval($_GET['m'])` raised
+       "Undefined array key" and then built a query with an empty column name,
+       which failed and took the page down with it. */
+    function formatMethod(int $method): ?string {
+        $methods = [
+            1 => "client_steamid",
+            2 => "client_name",
+            4 => "admin_name",
+            5 => "admin_steamid",
+        ];
+
+        return $methods[$method] ?? null;
+    }
+
+    /* The `m` value from the query string, or 0 when absent or not an integer
+       (`?m[]=1` included). 0 is not a valid method, so it reads as "no search". */
+    function searchMethodFromRequest(): int {
+        $method = filter_input(INPUT_GET, 'm', FILTER_VALIDATE_INT);
+
+        return is_int($method) ? $method : 0;
+    }
+
+    /* A positive page number from the query string, or 1.
+       `?page=abc` used to be a fatal TypeError ("Unsupported operand types:
+       string - int") and `?page=99999999999999999999` produced
+       `LIMIT 2.0E+21, 20`, an SQL syntax error. */
+    function currentPageFromRequest(): int {
+        $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1, 'default' => 1],
+        ]);
+
+        return is_int($page) ? $page : 1;
+    }
+
+    /* real_escape_string() does not neutralise the LIKE metacharacters, so a
+       search term was being matched as a pattern rather than as text. The value
+       is bound either way -- this is about matching the right rows, not safety.
+       The backslashes are doubled because MySQL parses escapes in the pattern
+       itself as well as in the string literal. */
+    function escapeLikeOperand(string $value): string {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /* Runs a prepared SELECT and hands back the result, so the page templates
+       do not each have to repeat the prepare/bind/execute dance. */
+    function dbSelect(mysqli $db, string $sql, string $types = '', array $params = []): mysqli_result {
+        $stmt = $db->prepare($sql);
+        if ($types !== '') {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $stmt->close();
+
+        return $result;
     }
 
     function GetRowInfo($id, $result2 = null) {

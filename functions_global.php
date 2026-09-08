@@ -141,6 +141,42 @@
     }
 
     class Eban {
+        /* EntWatch 4 keeps every eban in one table, so the status of a row is
+           derived from `unbanned_at` / `expires_at` instead of from the table
+           it happens to live in. Returns "active", "expired" or "removed". */
+        public function GetStatus($eban) {
+            if (!empty($eban['unbanned_at'])) {
+                $unbanSteamID = $eban['unban_admin_steamid'];
+                /* The plugin closes expired rows itself, crediting SERVER. */
+                return (empty($unbanSteamID) || $unbanSteamID == "SERVER") ? "expired" : "removed";
+            }
+
+            /* The plugin only runs its expiry cleanup on map start, so a row
+               can be past its expiry and still be open. */
+            if (!empty($eban['expires_at']) && $eban['expires_at'] <= time()) {
+                return "expired";
+            }
+
+            return "active";
+        }
+
+        public function IsEbanActive($eban) {
+            return ($this->GetStatus($eban) == "active");
+        }
+
+        /* Duration is stored in minutes: 0 is permanent, -1 is session. */
+        public function FormatDuration($durationInMinutes) {
+            if ($durationInMinutes == 0) {
+                return "Permanent";
+            }
+
+            if ($durationInMinutes <= -1) {
+                return "Session";
+            }
+
+            return $this->formatLength($durationInMinutes * 60);
+        }
+
         public function UnbanByID($id, $reasonA) {
             if (!isset($_COOKIE['steamID'])) { // This should never happen, but just to be safe
                 return false;
@@ -160,29 +196,15 @@
             $resultsB = $Eban->getEbanInfoFromID($id);
             $playerName = $resultsB['client_name'];
             $playerSteamID = $resultsB['client_steamid'];
-            $length = $resultsB['duration'];
+            $length = $resultsB['duration_minutes'];
 
-            // Update statement
-            $sql = "UPDATE `EntWatch_Current_Eban` SET `admin_name_unban` = ?, `admin_steamid_unban` = ?, `reason_unban` = ?, `timestamp_unban` = ? WHERE `id` = ?";
+            /* Closing the eban is a single update now: EntWatch 4 has no
+               separate table for lifted ebans. The `unbanned_at IS NULL` guard
+               keeps a second unban from overwriting who lifted it first. */
+            $sql = "UPDATE `EntWatch_Ebans` SET `unban_admin_name` = ?, `unban_admin_steamid` = ?, `unban_reason` = ?, `unbanned_at` = ? WHERE `id` = ? AND `unbanned_at` IS NULL";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $time_unban = time();
             $stmt->bind_param("sssii", $adminName, $adminSteamID, $reason, $time_unban, $id);
-            $stmt->execute();
-            $stmt->close();
-
-            // Insert into EntWatch_Old_Eban statement
-            $sql = "INSERT INTO `EntWatch_Old_Eban` (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `server`, `duration`, `timestamp_issued`, `reason`, `reason_unban`, `admin_name_unban`, `admin_steamid_unban`, `timestamp_unban`)
-                    SELECT `client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `server`, `duration`, `timestamp_issued`, `reason`, `reason_unban`, `admin_name_unban`, `admin_steamid_unban`, `timestamp_unban`
-                    FROM `EntWatch_Current_Eban` WHERE `id` = ?";
-            $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $stmt->close();
-
-            // Delete from EntWatch_Current_Eban statement
-            $sql = "DELETE FROM `EntWatch_Current_Eban` WHERE `id` = ?";
-            $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("i", $id);
             $stmt->execute();
             $stmt->close();
 
@@ -211,25 +233,15 @@
             $resultsC = $this->getEbanInfoFromID($id);
             $playerName = $resultsC['client_name'];
             $playerSteamID = $resultsC['client_steamid'];
-            $length = $resultsC['duration'];
+            $length = $resultsC['duration_minutes'];
             $reason = $resultsC['reason'];
-            $isExpired = ($resultsC['admin_steamid_unban'] == "SERVER" && $resultsC['timestamp_issued'] < time()) ? true : false;
-            $isRemoved = ($resultsC['admin_steamid_unban'] != "" && $resultsC['admin_steamid_unban'] != "SERVER") ? true : false;
 
-            $status = "Active";
-            if ($isExpired && !$isRemoved) {
-                $status = "Expired";
-            }
-
-            if ($isRemoved) {
-                $status = "Removed";
-            }
+            $status = ucfirst($this->GetStatus($resultsC));
 
             $message = "Eban Deleted (Player Name: $playerName, Player SteamID: $playerSteamID, was $length minutes. Issued for: $reason. Eban was $status)";
-            $dbTable = (!$isExpired && !$isRemoved) ? "EntWatch_Current_Eban" : "EntWatch_Old_Eban";
 
             // Use prepared statement for DELETE
-            $sql = "DELETE FROM `$dbTable` WHERE `id` = ?";
+            $sql = "DELETE FROM `EntWatch_Ebans` WHERE `id` = ?";
             $stmt = $GLOBALS['DB']->prepare($sql);
             $stmt->bind_param("i", $id);
             $stmt->execute();
@@ -320,47 +332,47 @@
         }
 
         public function getEbanInfoFromID($id) {
-            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `id`=? UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `id`=?";
+            $sql = "SELECT * FROM `EntWatch_Ebans` WHERE `id`=?";
             $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("ii", $id, $id);
+            $stmt->bind_param("i", $id);
             $stmt->execute();
             $query = $stmt->get_result();
 
-            $results = $query->fetch_all(MYSQLI_ASSOC);
+            $result = $query->fetch_assoc();
             $query->free();
+            $stmt->close();
 
-            foreach ($results as $result) {
-                return $result;
-            }
+            return $result;
         }
 
         public function GetEbansNumber($steamID) {
-            $search = $steamID;
-            $searchMethod = "client_steamid";
-
-            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`=? UNION ALL SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`=?";
+            $sql = "SELECT COUNT(*) AS `total` FROM `EntWatch_Ebans` WHERE `client_steamid`=?";
             $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("ss", $search, $search);
+            $stmt->bind_param("s", $steamID);
             $stmt->execute();
             $queryA = $stmt->get_result();
-            $rows = $queryA->num_rows;
+            $result = $queryA->fetch_assoc();
             $queryA->free();
-            return $rows;
+            $stmt->close();
+
+            return $result['total'];
         }
 
+        /* Same count, minus the ebans an admin lifted early: those the player
+           served out are still credited to them, the ones they were let off
+           are not. The plugin writes 'Expired' when it closes a row itself. */
         public function GetRealEbansNumber($steamID) {
-            $search = $steamID;
-            $searchMethod = "client_steamid";
-
-            $sql = "SELECT * FROM `EntWatch_Old_Eban` WHERE `$searchMethod`=? AND `reason_unban` = 'Expired' UNION ALL SELECT * FROM `EntWatch_Current_Eban` WHERE `$searchMethod`=?";
+            $sql = "SELECT COUNT(*) AS `total` FROM `EntWatch_Ebans`
+                    WHERE `client_steamid`=? AND (`unbanned_at` IS NULL OR `unban_reason` = 'Expired')";
             $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("ss", $search, $search);
+            $stmt->bind_param("s", $steamID);
             $stmt->execute();
             $queryA = $stmt->get_result();
-            $rows = $queryA->num_rows;
+            $result = $queryA->fetch_assoc();
             $queryA->free();
+            $stmt->close();
 
-            return $rows;
+            return $result['total'];
         }
 
         public function addNewEban($playerNameA, $playerSteamID, $length, $reasonA) {
@@ -380,18 +392,21 @@
                 $lengthInMinutes = 0;
             }
 
-            $timestamp_issued = time() + ($lengthInMinutes * 60);
+            /* EntWatch 4 records both ends of the eban: `expires_at` stays NULL
+               for permanent and session ebans. */
+            $issued_at = time();
+            $expires_at = ($lengthInMinutes > 0) ? ($issued_at + ($lengthInMinutes * 60)) : null;
 
             if ($this->IsSteamIDAlreadyBanned($playerSteamID)) {
                 die();
             }
 
-            // Prepare and execute INSERT INTO EntWatch_Current_Eban
-            $sql = "INSERT INTO `EntWatch_Current_Eban` 
-                    (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `reason`, `duration`, `timestamp_issued`, `server`)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'NIDE')";
+            // Prepare and execute INSERT INTO EntWatch_Ebans
+            $sql = "INSERT INTO `EntWatch_Ebans`
+                    (`client_name`, `client_steamid`, `admin_name`, `admin_steamid`, `reason`, `duration_minutes`, `issued_at`, `expires_at`)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             if ($stmt = $GLOBALS['DB']->prepare($sql)) {
-                $stmt->bind_param("sssssid", $playerName, $playerSteamID, $adminName, $adminSteamID, $reason, $lengthInMinutes, $timestamp_issued);
+                $stmt->bind_param("sssssiii", $playerName, $playerSteamID, $adminName, $adminSteamID, $reason, $lengthInMinutes, $issued_at, $expires_at);
                 if (!$stmt->execute()) {
                     error_log("Database error: " . $stmt->error);
                     die("Database error occurred.");
@@ -446,16 +461,18 @@
 
             $info = $this->getEbanInfoFromID($id);
 
-            $timestamp_issued = (($info['timestamp_issued'] - ($info['duration'] * 60)) + $length);
             if ($length <= -1) {
                 $lengthInMinutes = 30;
             } elseif ($length == 0) {
                 $lengthInMinutes = 0;
             }
 
+            /* The eban keeps the date it was handed out; only its end moves. */
+            $expires_at = ($lengthInMinutes > 0) ? ($info['issued_at'] + ($lengthInMinutes * 60)) : null;
+
             $time = time();
             if ($length >= 1) {
-                if ($timestamp_issued < $time) {
+                if ($expires_at < $time) {
                     $this->UnbanByID($id, "Giving another chance");
                     echo "<script>window.location.replace('index.php?all');</script>";
                     die();
@@ -463,9 +480,9 @@
             }
 
             // Update statement
-            $sql = "UPDATE `EntWatch_Current_Eban` SET `client_name` = ?, `client_steamid` = ?, `reason` = ?, `duration` = ?, `timestamp_issued` = ? WHERE `id` = ?";
+            $sql = "UPDATE `EntWatch_Ebans` SET `client_name` = ?, `client_steamid` = ?, `reason` = ?, `duration_minutes` = ?, `expires_at` = ? WHERE `id` = ?";
             $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("sssiii", $playerName, $playerSteamID, $reason, $lengthInMinutes, $timestamp_issued, $id);
+            $stmt->bind_param("sssiii", $playerName, $playerSteamID, $reason, $lengthInMinutes, $expires_at, $id);
             $stmt->execute();
             $stmt->close();
 
@@ -480,7 +497,7 @@
                 $message .= " New Reason: $reason"; 
             }
 
-            if ($lengthInMinutes != $info['duration']) {
+            if ($lengthInMinutes != $info['duration_minutes']) {
                 if ($lengthInMinutes >= 1) {
                     $message .= " New Length: $lengthInMinutes Minutes";
                 } elseif ($lengthInMinutes == 0) {
@@ -503,38 +520,23 @@
             //echo "<script>window.location.replace('index.php?all');</script>";
         }
 
+        /* Mirrors how the plugin decides a client is restricted: the eban has
+           not been lifted and has either no expiry or one still ahead of us. */
         public function IsSteamIDAlreadyBanned($steamID) {
-            $sql = "SELECT * FROM `EntWatch_Current_Eban` WHERE `client_steamid`=?";
+            $sql = "SELECT 1 FROM `EntWatch_Ebans`
+                    WHERE `client_steamid`=? AND `unbanned_at` IS NULL
+                      AND (`expires_at` IS NULL OR `expires_at` > ?)
+                    LIMIT 1";
             $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("s", $steamID);
+            $now = time();
+            $stmt->bind_param("si", $steamID, $now);
             $stmt->execute();
             $query = $stmt->get_result();
-
-            $results = $query->fetch_all(MYSQLI_ASSOC);
+            $isBanned = ($query->num_rows > 0);
             $query->free();
+            $stmt->close();
 
-            foreach ($results as $result) {
-                $isRemoved = (!empty($result['admin_steamid_unban']) && $result['admin_steamid_unban'] != "SERVER");
-                $isPermanent = ($result['duration'] == 0);
-
-                // Check if ban is expired (only for non-permanent bans)
-                $isExpired = false;
-                if (!$isPermanent && $result['duration'] > 0) {
-                    $endTime = $result['timestamp_issued'] + ($result['duration'] * 60);
-                    $isExpired = (time() >= $endTime);
-                }
-
-                // Ban is active if not removed and not expired
-                // For permanent bans: active if not removed
-                // For temporary bans: active if not removed and not expired
-                $isActive = !$isRemoved && (!$isPermanent || !$isExpired);
-
-                if ($isActive) {
-                    return true; // Early return when a matching active ban is found
-                }
-            }
-
-            return false;
+            return $isBanned;
         }
     }
 
@@ -573,34 +575,20 @@
         $clientSteamID      = $result2['client_steamid'];
         $adminSteamID       = $result2['admin_steamid'];
         $reason             = $result2['reason'];
-        $timestamp_issued   = $result2['timestamp_issued'];
-        $duration           = $result2['duration'];
-        $timestamp_unban     = $result2['timestamp_unban'];
-        $adminNameRemoved   = $result2['admin_name_unban'];
-        $adminSteamIDRemoved = $result2['admin_steamid_unban'];
-        $timestamp_unban = $result2['timestamp_unban'];
-        $reason_unban     = $result2['reason_unban'];
+        $issued_at          = $result2['issued_at'];
+        $expires_at         = $result2['expires_at'];
+        $duration           = $result2['duration_minutes'];
+        $unbanned_at        = $result2['unbanned_at'];
+        $adminNameRemoved   = $result2['unban_admin_name'];
+        $unban_reason       = $result2['unban_reason'];
 
         $adminName = $admin->GetAdminNameFromSteamID($adminSteamID);
 
-        $isExpired = ($adminSteamIDRemoved == "SERVER" && ($timestamp_issued) < time()) ? true : false;
-        $isRemoved = ($adminSteamIDRemoved != "" && $adminSteamIDRemoved != "SERVER") ? true : false;
+        $ebanStatus = $Eban->GetStatus($result2);
+        $isRemoved = ($ebanStatus == "removed");
 
-        $length = $Eban->formatLength($duration * 60);
-        if ($duration == 0) {
-            $length = "Permanent";
-        } elseif ($duration <= -1) {
-            $length = "Session";
-        }
-
-        $status = "Eban Active";
-        if ($isExpired && !$isRemoved) {
-            $status = "Eban Expired";
-        }
-
-        if ($isRemoved) {
-            $status = "Eban Removed";
-        }
+        $length = $Eban->FormatDuration($duration);
+        $status = "Eban " . ucfirst($ebanStatus);
 
         echo "<div class='Eban-buttons'>";
 
@@ -611,8 +599,7 @@
         if (IsAdminLoggedIn()) {
             $admin->UpdateAdminInfo($_COOKIE['steamID']);
 
-            if (($duration == 0 && $isRemoved == false) || ($timestamp_issued < 1 && $isRemoved == false && $isExpired == false) || ($timestamp_issued >= 1 && time() < $timestamp_issued && $isRemoved == false && $isExpired == false)) {
-            
+            if ($ebanStatus == "active") {
                 if ($admin->DoesHaveFullAccess() || $adminSteamID == $admin->adminSteamID) {
                     $editFunction = "EditFromID(\"$id\")";
                     echo "<button class='button button-primary' title='Edit' onclick='$editFunction'><i class='fa-regular fa-pen-to-square'></i>&nbspEdit Details</button>";
@@ -640,13 +627,17 @@
         echo "</div>";
 
         $date = new DateTime("now", new DateTimeZone(DATE_TIME_ZONE));
-        $date->setTimestamp(($timestamp_issued - ($duration * 60)));
+        $date->setTimestamp($issued_at);
         $startDate  = $date->format(DATE_TIME_FORMAT);
 
-        $date->setTimestamp($timestamp_issued);
-        $endDate    = ($length === "Session") ? "Temporary" : $date->format(DATE_TIME_FORMAT);
+        /* Permanent and session ebans both have no expiry timestamp. */
         if ($duration == 0) {
             $endDate = "Never";
+        } elseif ($duration <= -1) {
+            $endDate = "Temporary";
+        } else {
+            $date->setTimestamp($expires_at);
+            $endDate = $date->format(DATE_TIME_FORMAT);
         }
 
         echo "<ul class='Eban_details'>";
@@ -705,7 +696,7 @@
         echo "</li>";
 
         if ($isRemoved) {
-            $date->setTimestamp($timestamp_unban);
+            $date->setTimestamp($unbanned_at);
             $removedDate = $date->format(DATE_TIME_FORMAT);
 
             echo "<li>";
@@ -720,7 +711,7 @@
 
             echo "<li>";
             echo "<span><i class='fas fa-question'></i> Unban Reason</span>";
-            echo "<span>$reason_unban</span>";
+            echo "<span>$unban_reason</span>";
             echo "</li>";
         }
         

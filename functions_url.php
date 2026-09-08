@@ -142,7 +142,7 @@
             die();
         }
 
-        if ($playerName == $info['client_name'] && $playerSteamID == $info['client_steamid'] && $reason == $info['reason'] && $length == ($info['duration'] * 60)) {
+        if ($playerName == $info['client_name'] && $playerSteamID == $info['client_steamid'] && $reason == $info['reason'] && $length == ($info['duration_minutes'] * 60)) {
             echo "<p>$icon Cannot detect any changes to edit!</p>";
             die();
         }
@@ -152,8 +152,10 @@
             die();
         }
 
-        $timestamp_issued = (($info['timestamp_issued'] - ($info['duration'] * 60)) + $length);
-        if ($length > 0 && $timestamp_issued < time()) {
+        /* The eban keeps its original start date, so the new length is measured
+           from `issued_at` and must still land in the future. */
+        $expires_at = $info['issued_at'] + $length;
+        if ($length > 0 && $expires_at < time()) {
             echo "<p>$icon Invalid Duration! Expected a duration that will last in the future but got one that has already ended.</p>";
             die();
         }

@@ -7,69 +7,72 @@
         die();
     }
 
-    if (isset($_GET['page'])) {
-        $currentPage = ($_GET['page'] <= 0) ? 1 : $_GET['page'];
-    } else {
-        $currentPage = 1;
-    }
-
     $resultsPerPage = 20;
-    $resultsStart = (($currentPage - 1) * $resultsPerPage);
+    $currentPage = currentPageFromRequest();
 
     /* EntWatch 4 holds every eban in one table, so active and expired are
-       filters over `unbanned_at` / `expires_at` rather than separate tables. */
+       filters over `unbanned_at` / `expires_at` rather than separate tables.
+
+       Every value below is bound, never interpolated. `$conditions` only ever
+       holds fragments written here, and the one column name that varies comes
+       from formatMethod()'s allowlist. */
     $now = time();
     $conditions = array();
+    $types = '';
+    $params = array();
 
     $pageType = "all";
     if (isset($_GET['active'])) {
         $pageType = "active";
-        $conditions[] = "(`unbanned_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > $now))";
+        $conditions[] = "(`unbanned_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > ?))";
+        $types .= 'i';
+        $params[] = $now;
     } elseif (isset($_GET['expired'])) {
         $pageType = "expired";
-        $conditions[] = "(`unbanned_at` IS NOT NULL OR (`expires_at` IS NOT NULL AND `expires_at` <= $now))";
+        $conditions[] = "(`unbanned_at` IS NOT NULL OR (`expires_at` IS NOT NULL AND `expires_at` <= ?))";
+        $types .= 'i';
+        $params[] = $now;
     }
 
-    if (isset($_GET['s'])) {
+    $method = formatMethod(searchMethodFromRequest());
+    if (isset($_GET['s']) && is_string($_GET['s']) && $method !== null) {
         $input = $_GET['s'];
-        $method = formatMethod(intval($_GET['m']));
-        if ($method == "client_steamid" || $method == "admin_steamid") {
-            if (!str_contains($input, "STEAMID")) {
-                if (str_contains($input, " ")) {
-                    $input = str_replace(" ", "", $input);
-                }
-            }
 
-            $steam = new Steam();
-            $result = $steam->verifyAndConvertSteamID($input);
+        if ($method === "client_steamid" || $method === "admin_steamid") {
+            /* A SteamID never contains a space, so a pasted one can be
+               un-wrapped before it is parsed. */
+            $input = str_replace(" ", "", $input);
 
+            $result = Steam::verifyAndConvertSteamID($input);
             if ($result['success']) {
-                $convertedSteamID = $result['steamID2'];
-                $input = $convertedSteamID;
+                $input = $result['steamID2'];
             } else {
                 error_log("Error converting SteamID: " . $result['error']);
             }
         }
 
-        $search = $GLOBALS['DB']->real_escape_string($input);
-        $conditions[] = "`$method` LIKE '%$search%'";
+        $conditions[] = "`$method` LIKE ?";
+        $types .= 's';
+        $params[] = '%' . escapeLikeOperand($input) . '%';
     }
 
     $ebans = eban_table('ebans');
-    $sql = "SELECT * FROM `$ebans` ";
-    if (!empty($conditions)) {
-        $sql .= 'WHERE ' . implode(' AND ', $conditions) . ' ';
-    }
+    $where = empty($conditions) ? '' : ' WHERE ' . implode(' AND ', $conditions);
 
-    $sql_query = $GLOBALS['DB']->query($sql);
+    $sql_query = dbSelect($GLOBALS['DB'], "SELECT * FROM `$ebans`$where", $types, $params);
     $resultsCount = $sql_query->num_rows;
-    $totalPages = ceil(($resultsCount / $resultsPerPage));
+    $totalPages = (int) ceil($resultsCount / $resultsPerPage);
 
     $sql_query->free();
     if ($totalPages != 0 && $currentPage > $totalPages) {
         $currentPage = $totalPages;
     }
-    
+
+    /* After the clamp, not before: a `?page=` past the end used to leave the
+       offset pointing past the last row, so the page came back empty while the
+       selector claimed to be showing the last page. */
+    $resultsStart = ($currentPage - 1) * $resultsPerPage;
+
     $pageActiveNum = 2;
     if ($pageType == "all") {
         $pageActiveNum = 0;
@@ -89,7 +92,12 @@
 ?>
 
     <?php
-        $query = $GLOBALS['DB']->query($sql . "ORDER BY `issued_at` DESC LIMIT $resultsStart, $resultsPerPage");
+        $query = dbSelect(
+            $GLOBALS['DB'],
+            "SELECT * FROM `$ebans`$where ORDER BY `issued_at` DESC LIMIT ?, ?",
+            $types . 'ii',
+            array_merge($params, [$resultsStart, $resultsPerPage])
+        );
         $results1 = $query->fetch_all(MYSQLI_ASSOC);
         $resultsRealCount = $query->num_rows;
         $query->free();

@@ -11,18 +11,40 @@
     $edit = false;
     $add = false;
 
+    if (isset($_GET['reban']) || isset($_GET['edit'])) {
+        /* `oldid` was read without isset(), and getEbanInfoFromID() returns
+           null for an unknown id, so a missing or bogus id warned its way
+           through and rendered an empty form. */
+        $oldid = filter_input(INPUT_GET, 'oldid', FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => 1],
+        ]);
+
+        if (!is_int($oldid)) {
+            renderAccessDenied("No eban was specified.");
+        }
+
+        $Eban = new Eban();
+        $info = $Eban->getEbanInfoFromID($oldid);
+
+        if ($info === null) {
+            renderAccessDenied("That eban no longer exists.");
+        }
+
+        /* Ownership was only checked when the form was submitted, so an admin
+           could open somebody else's eban, fill the form in and be refused at
+           the end. Check it here as well. */
+        $admin->UpdateAdminInfo();
+        if (!$admin->DoesHaveFullAccess() && $info['admin_steamid'] != $admin->adminSteamID) {
+            renderAccessDenied("You can only manage ebans you issued yourself.");
+        }
+    }
+
     if (isset($_GET['reban'])) {
         $reban = true;
-        $oldid = $_GET['oldid'];
-        $Eban = new Eban();
-        $info = $Eban->getEbanInfoFromID(intval($oldid));
     }
 
     if (isset($_GET['edit'])) {
         $edit = true;
-        $oldid = $_GET['oldid'];
-        $Eban = new Eban();
-        $info = $Eban->getEbanInfoFromID(intval($oldid));
 
         if (!$Eban->IsEbanActive($info)) {
             renderAccessDenied("Cannot edit an old Eban!");

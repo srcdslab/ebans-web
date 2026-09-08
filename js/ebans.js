@@ -1,3 +1,31 @@
+/*
+ * Every state-changing call goes through postAction(): a POST carrying the
+ * per-session CSRF token from the <meta> tag header.php emits. These used to
+ * be plain GETs with no token, so following a link was enough to delete an
+ * eban as whoever clicked it.
+ */
+function csrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
+function postAction(params, onDone) {
+    const body = new URLSearchParams(params);
+    body.append('csrf_token', csrfToken());
+
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (this.readyState === 4) {
+            onDone(this);
+        }
+    };
+
+    xhr.open('POST', 'functions_url.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.setRequestHeader('X-CSRF-Token', csrfToken());
+    xhr.send(body.toString());
+}
+
 function showEbanInfo(button) {
     let id = $(button).attr('id-data');
     let diva = '#diva-'+id;
@@ -25,38 +53,37 @@ function GoHome() {
 
 function ConfirmUnban(id, name, steamid) {
     let reason = prompt('Please type the reason why you would Eunban ' + name + '[' + steamid + ']');
-    let confirmMessage = 'Are you sure you want to Eunban ' + name + '[' + steamid + ']';
-    let confirmHandler = confirm(confirmMessage);
+    if (reason === null) {
+        return;
+    }
 
-    if (confirmHandler == true) {
-        UnBanByID(encodeURIComponent(id), encodeURIComponent(reason));
+    let confirmMessage = 'Are you sure you want to Eunban ' + name + '[' + steamid + ']';
+    if (confirm(confirmMessage)) {
+        /* Raw values: postAction() encodes the body itself, so pre-encoding
+           here would send the reason double-escaped. */
+        UnBanByID(id, reason);
     }
 }
 
 function UnBanByID(id, reason) {
-    var xmlResponse1 = new XMLHttpRequest();
-    xmlResponse1.onreadystatechange = function() {
-        if(this.readyState == 4 && this.status == 200) {
-            $('#diva-'+id).html(this.responseText);
-            
-            let trDiva = document.getElementById('diva-tr-'+id);
-            trDiva.className = "row-expired";
-            let oldHtml = $('#length-'+id).html();
-            let newHtml = (oldHtml + ' (Removed)');
-            $('#length-'+id).html(newHtml);
+    postAction({ oldid: id, reason: reason }, function(xhr) {
+        if (xhr.status !== 200) {
+            alert('Unban failed: ' + xhr.responseText);
+            return;
         }
-    };
 
-    xmlResponse1.open("GET", "functions_url.php?oldid="+id+'&reason='+reason, true);
-    xmlResponse1.send();
+        $('#diva-'+id).html(xhr.responseText);
 
+        let trDiva = document.getElementById('diva-tr-'+id);
+        trDiva.className = "row-expired";
+        let oldHtml = $('#length-'+id).html();
+        let newHtml = (oldHtml + ' (Removed)');
+        $('#length-'+id).html(newHtml);
+    });
+
+    /* Re-reading the row is a read, so it stays a GET. */
     var xmlResponse2 = new XMLHttpRequest();
-    xmlResponse2.onreadystatechange = function() {
-        if(this.readyState == 4 && this.status == 200) {
-        }
-    };
-
-    xmlResponse2.open("GET", "functions_url.php?id="+id, true);
+    xmlResponse2.open("GET", "functions_url.php?id="+encodeURIComponent(id), true);
     xmlResponse2.send();
 }
 
@@ -76,38 +103,28 @@ function EditFromID(id) {
 }
 
 function addNewEban(playerName, playerSteamID, length, reason) {
-    var xmlResponse = new XMLHttpRequest();
-    xmlResponse.onreadystatechange = function() {
-        if(this.readyState == 4 && this.status == 200) {
-            $('.error').html(xmlResponse.responseText);
-        }
-    };
-
-    let url = "functions_url.php?add=1&playerName=" + encodeURIComponent(playerName) + 
-              '&playerSteamID=' + encodeURIComponent(playerSteamID) + 
-              '&length=' + encodeURIComponent(length) + 
-              '&reason=' + encodeURIComponent(reason);
-
-    xmlResponse.open("GET", url, true);
-    xmlResponse.send();
+    postAction({
+        add: 1,
+        playerName: playerName,
+        playerSteamID: playerSteamID,
+        length: length,
+        reason: reason
+    }, function(xhr) {
+        $('.error').html(xhr.responseText);
+    });
 }
 
 function EditEban(id, playerName, playerSteamID, length, reason) {
-    var xmlResponse1 = new XMLHttpRequest();
-    xmlResponse1.onreadystatechange = function() {
-        if(this.readyState == 4 && this.status == 200) {
-            $('.error').html(xmlResponse1.responseText);
-        }
-    };
-
-    let url = "functions_url.php?edit=1&id=" + encodeURIComponent(id) + 
-              '&playerName=' + encodeURIComponent(playerName) + 
-              '&playerSteamID=' + encodeURIComponent(playerSteamID) + 
-              '&length=' + encodeURIComponent(length) + 
-              '&reason=' + encodeURIComponent(reason);
-
-    xmlResponse1.open("GET", url, true);
-    xmlResponse1.send();
+    postAction({
+        edit: 1,
+        id: id,
+        playerName: playerName,
+        playerSteamID: playerSteamID,
+        length: length,
+        reason: reason
+    }, function(xhr) {
+        $('.error').html(xhr.responseText);
+    });
 }
 
 function RemoveEbanFromDBCheck(id) {
@@ -119,15 +136,9 @@ function RemoveEbanFromDBCheck(id) {
 }
 
 function RemoveEbanFromDB(id) {
-    var xmlResponse1 = new XMLHttpRequest();
-    xmlResponse1.onreadystatechange = function() {
-        if(this.readyState == 4 && this.status == 200) {
-            $('.hide').html(xmlResponse1.responseText);
-        }
-    };
-
-    xmlResponse1.open("GET", "functions_url.php?delete=1&deleteid="+id, true);
-    xmlResponse1.send();
+    postAction({ delete: 1, deleteid: id }, function(xhr) {
+        $('.hide').html(xhr.responseText);
+    });
 }
 
 function setActive(num) {

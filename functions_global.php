@@ -40,10 +40,12 @@
        HTTPS, and quietly downgrading it here would hand the credential to
        anyone on the wire. See the Requirements section in README.md.
 
-       `samesite` was absent, which left the browser default of Lax. Lax is
-       still sent on top-level GET navigation -- which is exactly what the
-       write endpoints are -- so it is set explicitly here and tightened when
-       those endpoints move to POST. */
+       `samesite` was absent, which left the browser default of Lax implicit.
+       It is now stated. Lax rather than Strict on purpose: Lax is never sent
+       on a cross-site POST, and every write is a POST carrying a CSRF token,
+       so Lax already closes the hole. Strict would additionally withhold the
+       cookie on the return leg of the Steam OpenID redirect, which lands the
+       user back on the panel looking signed out. */
     function loginCookieOptions(int $expires): array {
         return [
             'expires'  => $expires,
@@ -102,6 +104,42 @@
 
     startPanelSession();
 
+    /* The per-session CSRF token.
+
+       Every state-changing endpoint used to be a GET with no token at all, so
+       an admin who merely clicked a link could delete an eban. */
+    function csrfToken(): string {
+        if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+
+        return $_SESSION['csrf_token'];
+    }
+
+    /* The gate every write goes through: POST only, with a token that proves
+       the request came from a page this session was served.
+
+       POST is what makes the SameSite=Lax cookie sufficient -- Lax is still
+       sent on top-level GET navigation, which is exactly what these endpoints
+       used to be, but never on a cross-site POST. */
+    function requireWriteRequest(): void {
+        $icon = "<i class='fa-solid fa-xmark'></i>&nbsp;";
+
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            http_response_code(405);
+            header('Allow: POST');
+            echo "<p>$icon This action must be sent as a POST request.</p>";
+            die();
+        }
+
+        $sent = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        if (!is_string($sent) || !hash_equals(csrfToken(), $sent)) {
+            http_response_code(403);
+            echo "<p>$icon Your session has expired. Reload the page and try again.</p>";
+            die();
+        }
+    }
+
     /* Records a completed Steam OpenID login. */
     function establishAdminSession(string $steamID, array $adminRow): void {
         /* A fresh id for the authenticated session, so an id that existed
@@ -113,6 +151,9 @@
         $_SESSION['gid']        = (int) $adminRow['gid'];
         $_SESSION['user']       = $adminRow['user'];
         $_SESSION['login_time'] = time();
+
+        /* A token belonging to the pre-login session must not stay valid. */
+        unset($_SESSION['csrf_token']);
     }
 
     function destroyAdminSession(): void {

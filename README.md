@@ -5,10 +5,19 @@ This branch contains the web interface for EntWatch 4 (DZ).
 It is compatible with the SourcePawn plugin available here:
 https://github.com/srcdslab/sm-plugin-entwatch-4
 
+# Requirements
+- PHP 8.3 or newer, with the `mysqli` and `bcmath` extensions enabled
+  (`bcmath` is used for the 64-bit SteamID arithmetic in `steam.php`).
+- MySQL 5.7 / MariaDB 10.3 or newer.
+- A SourceBans++ database for admin login.
+
 # Installation
-1. Copy the contents of the `site` folder to your web hosting.
-2. Edit `config.example.php` with your settings, then rename it to `config.php`.
-3. If needed, change the number of records displayed per page in `connect.php` with the `$per_page` variable.
+1. Copy the contents of this repository to your web hosting. The panel runs from
+   the document root; there is no build step.
+2. Copy `config.example.php` to `config.php` and fill in your settings.
+   `config.php` is deliberately excluded by `.gitignore` — never commit it.
+3. If needed, change the number of records displayed per page with the
+   `$resultsPerPage` variable in `index.php` and `logs.php`.
 
 # Upgrading from EntWatch 3
 EntWatch 4 replaced the `EntWatch_Current_Eban` / `EntWatch_Old_Eban` pair with a

@@ -540,6 +540,19 @@
         }
     }
 
+    /* Renders a full, well-formed page for a request that is not allowed to
+       continue: the error box, then the footer that closes `body_content`,
+       `<body>` and `<html>` opened by header.php. */
+    function renderAccessDenied($message = "You do not have access to this page.") {
+        echo "<div class='container'>
+        <div class='error-box'>
+        <p><i class='fa-solid fa-triangle-exclamation'></i> $message</p>
+        </div>
+        </div>";
+        include(ROOT . 'footer.php');
+        die();
+    }
+
     function IsAdminLoggedIn() {
         if (!isset($_COOKIE['steamID']) || !isset($_COOKIE['secret_key'])) {
             return false;

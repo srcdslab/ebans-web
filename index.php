@@ -87,8 +87,6 @@
     echo "<script>setActive($pageActiveNum); setModalSearch(\"$pageType\");</script>";
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
     <?php
         $query = $GLOBALS['DB']->query($sql . "ORDER BY `issued_at` DESC LIMIT $resultsStart, $resultsPerPage");
         $results1 = $query->fetch_all(MYSQLI_ASSOC);
@@ -242,9 +240,6 @@
                 </div>
             </div>
         </div>
-        <?php include('footer.php'); ?>
-    </div>
-</body>
 <script>
     $(function() {
         var allRows = [
@@ -267,3 +262,4 @@
         });
     });
 </script>
+<?php include('footer.php'); ?>

@@ -4,13 +4,7 @@
 
     $admin = new Admin();
     if (!IsAdminLoggedIn()) {
-        echo "<div class='container'>
-        <div class='error-box'>
-        <p><i class='fa-solid fa-triangle-exclamation'></i> You do not have access to this page.</p>
-        </div>
-        </div>
-        </div>";
-        die();
+        renderAccessDenied();
     }
 
     $reban = false;
@@ -31,13 +25,7 @@
         $info = $Eban->getEbanInfoFromID(intval($oldid));
 
         if (!$Eban->IsEbanActive($info)) {
-            echo "<div class='container'>
-            <div class='error-box'>
-            <p><i class='fa-solid fa-triangle-exclamation'></i> Cannot edit an old Eban!</p>
-            </div>
-            </div>
-            </div>";
-            die();
+            renderAccessDenied("Cannot edit an old Eban!");
         }
     }
 
@@ -50,9 +38,6 @@
     }
 ?>
 
-<!DOCTYPE html>
-
-<html>
     <?php
     $text = ($edit == true) ? "Edit Eban" : "Add Eban";
     $formHeader = ($edit == true) ? "<i class='fa-regular fa-pen-to-square'></i>" : "<i class='fas fa-user-times'></i>";
@@ -101,7 +86,7 @@
                     <?php if (empty($val)) { ?>
                         <input id="playerSteamID" type="text" class="input Eban-input">
                     <?php } else { ?>
-                        <input id="playerSteamID" type="text" class="input Eban-input" value=<?php echo "\"$val\""; ?> title="Why the f*ck do you want to edit the SteamID? Just add a new Eban nigger" disabled>
+                        <input id="playerSteamID" type="text" class="input Eban-input" value=<?php echo "\"$val\""; ?> title="The SteamID of an existing eban cannot be changed. Unban this eban and add a new one against the correct SteamID instead." disabled>
                     <?php } ?>
                 </div>
 
@@ -156,9 +141,6 @@
             </div>
         </div>
     </div>
-    <?php include('footer.php'); ?>
-</div>
-</body>
     <script>
         $(function() {
             function verifyAndConvertSteamID(steamID, callback) {
@@ -240,3 +222,4 @@
         });
     });
 </script>
+<?php include('footer.php'); ?>

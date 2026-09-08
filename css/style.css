@@ -74,12 +74,17 @@ body {
 /**
  * Header
  */
+header {
+	position: sticky;
+	top: 0;
+	z-index: 1000;
+	width: 100%;
+	background-color: var(--theme-background);
+}
+
 .header1 {
 	display: flex;
-	position: fixed;
-	top: 0;
 	width: 100%;
-	z-index: 1;
 
 	justify-content: space-between;
 	align-items: center;
@@ -99,7 +104,6 @@ body {
 }
 
 .header2 {
-	margin-top: 1.4cm;
 	display: flex;
 	width: 100%;
 	justify-content: space-between;
@@ -500,11 +504,13 @@ li.layout_box_title {
  * Footer
  */
 .footer {
+	width: 100%;
 	background-color: var(--box--backgroundColor);
 	color: var(--theme-text);
 }
 
 .footer>.layout_container {
+	width: 100%;
 	padding: 20px 15px;
 }
 

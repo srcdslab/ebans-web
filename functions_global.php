@@ -35,96 +35,121 @@
         public $adminGroupID = -1;
         public $adminSteamID = "";
         public $adminUser = "";
-        
+
+        /* Request-scoped memos. Every one of these answers a question that the
+           listing page used to ask again for each row it rendered. */
+        private static $adminNameCache = [];
+        private static $loginValidCache = [];
+        private static $adminRowCache = [];
+
+        /* Resolve the admin names for a whole page in one query.
+           Call this with the page's admin_steamid column before rendering;
+           GetAdminNameFromSteamID() then answers from memory. */
+        public static function primeAdminNames(array $steamIDs) {
+            $wanted = [];
+            foreach ($steamIDs as $steamID) {
+                if (is_string($steamID) && str_contains($steamID, "STEAM")
+                    && !array_key_exists($steamID, self::$adminNameCache)) {
+                    $wanted[$steamID] = true;
+                }
+            }
+
+            if (empty($wanted)) {
+                return;
+            }
+
+            $ids = array_keys($wanted);
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $admins = sbpp_table('admins');
+
+            $result = dbSelect(
+                $GLOBALS['SBPP'],
+                "SELECT `authid`, `user` FROM `$admins` WHERE `authid` IN ($placeholders)",
+                str_repeat('s', count($ids)),
+                $ids
+            );
+
+            foreach ($result->fetch_all(MYSQLI_ASSOC) as $row) {
+                self::$adminNameCache[$row['authid']] = $row['user'];
+            }
+            $result->free();
+
+            /* Whatever is still missing was removed from SourceBans. Record
+               that too, so it is not looked up again row after row. */
+            foreach ($ids as $id) {
+                if (!array_key_exists($id, self::$adminNameCache)) {
+                    self::$adminNameCache[$id] = "Admin Deleted";
+                }
+            }
+        }
+
         public function GetAdminNameFromSteamID($steamID) {
-            if (!str_contains($steamID, "STEAM")) {
+            if (!is_string($steamID) || !str_contains($steamID, "STEAM")) {
                 return "CONSOLE";
             }
 
-            $admins = sbpp_table('admins');
-            $sql = "SELECT * FROM `$admins` WHERE `authid`=?";
-            $stmt = $GLOBALS['SBPP']->prepare($sql);
-            $stmt->bind_param("s", $steamID);
-            $stmt->execute();
-            $queryResult = $stmt->get_result();
-            $stmt->close();
-
-            $results = $queryResult->fetch_all(MYSQLI_ASSOC);
-            foreach ($results as $result) {
-                return $result['user'];
+            if (!array_key_exists($steamID, self::$adminNameCache)) {
+                self::primeAdminNames([$steamID]);
             }
 
-            /* Plain text, not markup: every render site escapes this value
-               now, so an <i> here would be shown to the user as literal tags. */
-            return "Admin Deleted";
+            return self::$adminNameCache[$steamID];
     }
         
         public function IsLoginValid($steamID, $secret_key, $bInitialVerification) {
-         if (empty($steamID) || empty($secret_key) || $secret_key !== $GLOBALS['SECRET_KEY']) {
-            return false;
-        }
-
-        $admins = sbpp_table('admins');
-        $sql = "SELECT aid FROM `$admins` WHERE authid = ?";
-        $stmt = $GLOBALS['SBPP']->prepare($sql);
-        $stmt->bind_param("s", $steamID);
-        $stmt->execute();
-        $queryResult = $stmt->get_result();
-        $stmt->close();
-
-        // Fetch the result from the query
-        $row = $queryResult->fetch_assoc();
-        $sbppaid = $row['aid'];
-
-        // Compare the cookie 'aid' with the result from the query
-        if (!$bInitialVerification && $sbppaid != $_COOKIE['aid']) {
-            return false;
-        }
-
-        $admins = sbpp_table('admins');
-        $sql = "SELECT * FROM `$admins` WHERE `authid`=?";
-        $stmt = $GLOBALS['SBPP']->prepare($sql);
-        $stmt->bind_param("s", $steamID);
-        $stmt->execute();
-        $queryResult = $stmt->get_result();
-        $stmt->close();
-
-        if ($queryResult->num_rows <= 0) {
-            return false;
-        }
-
-        $acceptableGroups = array_merge(GID_STAFF, GID_ADMIN);
-        $resultsAAA = $queryResult->fetch_all(MYSQLI_ASSOC);
-        foreach ($resultsAAA as $result) {
-            $gid = $result['gid'];
-            if (!in_array($gid, $acceptableGroups) || $gid == -1) {
+            if (empty($steamID) || empty($secret_key) || $secret_key !== $GLOBALS['SECRET_KEY']) {
                 return false;
             }
+
+            /* The same question about the same admin, asked once per request.
+               GetRowInfo() alone used to call this four times per row. */
+            $cacheKey = $steamID . '|' . ($bInitialVerification ? '1' : '0');
+            if (array_key_exists($cacheKey, self::$loginValidCache)) {
+                return self::$loginValidCache[$cacheKey];
+            }
+
+            /* One row, one query. This used to run two SELECTs against the
+               same authid -- one for `aid`, then `SELECT *` for the rest. */
+            $admins = sbpp_table('admins');
+            $result = dbSelect(
+                $GLOBALS['SBPP'],
+                "SELECT `aid`, `gid`, `authid`, `user` FROM `$admins` WHERE `authid` = ? LIMIT 1",
+                's',
+                [$steamID]
+            );
+            $row = $result->fetch_assoc();
+            $result->free();
+
+            if ($row === null) {
+                return self::$loginValidCache[$cacheKey] = false;
+            }
+
+            // Compare the cookie 'aid' with the result from the query
+            if (!$bInitialVerification && $row['aid'] != ($_COOKIE['aid'] ?? null)) {
+                return self::$loginValidCache[$cacheKey] = false;
+            }
+
+            $acceptableGroups = array_merge(GID_STAFF, GID_ADMIN);
+            if (!in_array($row['gid'], $acceptableGroups) || $row['gid'] == -1) {
+                return self::$loginValidCache[$cacheKey] = false;
+            }
+
+            /* UpdateAdminInfo() wants exactly this row; hand it over rather
+               than making it fetch the same one again. */
+            self::$adminRowCache[$steamID] = $row;
+
+            return self::$loginValidCache[$cacheKey] = true;
         }
 
-        return true;
-    }
-
         public function UpdateAdminInfo($steamID) {
-            $secret_key = $_COOKIE['secret_key'];
+            $secret_key = $_COOKIE['secret_key'] ?? '';
             if (!$this->IsLoginValid($steamID, $secret_key, false)) {
                 return false;
             }
 
-            $admins = sbpp_table('admins');
-            $sql = "SELECT `aid`, `gid`, `authid`, `user` FROM `$admins` WHERE `authid`=?";
-            $stmt = $GLOBALS['SBPP']->prepare($sql);
-            $stmt->bind_param("s", $steamID);
-            $stmt->execute();
-            $queryResult = $stmt->get_result();
-
-            if ($queryResult->num_rows <= 0) {
-                $stmt->close();
+            $result = self::$adminRowCache[$steamID] ?? null;
+            if ($result === null) {
                 return false;
             }
-
-            $result = $queryResult->fetch_assoc();
-            $stmt->close();
 
             $this->adminID = $result['aid'];
             $this->adminGroupID = $result['gid'];
@@ -357,36 +382,46 @@
             return $result;
         }
 
-        public function GetEbansNumber($steamID) {
+        /* Both eban counters for a whole page of rows, in one grouped query.
+           These used to be two separate COUNT(*) queries per row.
+
+           `total` is every eban the SteamID has ever had. `real` leaves out
+           the ones an admin lifted early: an eban the player served out still
+           counts against them, one they were let off does not. The plugin
+           writes 'Expired' when it closes a row itself.
+
+           Returns [steamid => ['total' => int, 'real' => int]]. */
+        public function GetEbanCountsFor(array $steamIDs) {
+            $ids = array_values(array_unique(array_filter($steamIDs, 'is_string')));
+            if (empty($ids)) {
+                return [];
+            }
+
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
             $ebans = eban_table('ebans');
-            $sql = "SELECT COUNT(*) AS `total` FROM `$ebans` WHERE `client_steamid`=?";
-            $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("s", $steamID);
-            $stmt->execute();
-            $queryA = $stmt->get_result();
-            $result = $queryA->fetch_assoc();
-            $queryA->free();
-            $stmt->close();
 
-            return $result['total'];
-        }
+            $result = dbSelect(
+                $GLOBALS['DB'],
+                "SELECT `client_steamid`,
+                        COUNT(*) AS `total`,
+                        SUM(`unbanned_at` IS NULL OR `unban_reason` = 'Expired') AS `real_total`
+                 FROM `$ebans`
+                 WHERE `client_steamid` IN ($placeholders)
+                 GROUP BY `client_steamid`",
+                str_repeat('s', count($ids)),
+                $ids
+            );
 
-        /* Same count, minus the ebans an admin lifted early: those the player
-           served out are still credited to them, the ones they were let off
-           are not. The plugin writes 'Expired' when it closes a row itself. */
-        public function GetRealEbansNumber($steamID) {
-            $ebans = eban_table('ebans');
-            $sql = "SELECT COUNT(*) AS `total` FROM `$ebans`
-                    WHERE `client_steamid`=? AND (`unbanned_at` IS NULL OR `unban_reason` = 'Expired')";
-            $stmt = $GLOBALS['DB']->prepare($sql);
-            $stmt->bind_param("s", $steamID);
-            $stmt->execute();
-            $queryA = $stmt->get_result();
-            $result = $queryA->fetch_assoc();
-            $queryA->free();
-            $stmt->close();
+            $counts = [];
+            foreach ($result->fetch_all(MYSQLI_ASSOC) as $row) {
+                $counts[$row['client_steamid']] = [
+                    'total' => (int) $row['total'],
+                    'real'  => (int) $row['real_total'],
+                ];
+            }
+            $result->free();
 
-            return $result['total'];
+            return $counts;
         }
 
         public function addNewEban($playerNameA, $playerSteamID, $length, $reasonA) {

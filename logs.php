@@ -37,11 +37,12 @@
         $params[] = '%' . escapeLikeOperand($_GET['s']) . '%';
     }
 
-    $sql_query = dbSelect($GLOBALS['DB'], "SELECT * FROM `$logs`$where", $types, $params);
-    $resultsCount = $sql_query->num_rows;
+    /* COUNT(*), not SELECT * plus num_rows. */
+    $countQuery = dbSelect($GLOBALS['DB'], "SELECT COUNT(*) AS `total` FROM `$logs`$where", $types, $params);
+    $resultsCount = (int) $countQuery->fetch_assoc()['total'];
     $totalPages = (int) ceil($resultsCount / $resultsPerPage);
 
-    $sql_query->free();
+    $countQuery->free();
     if ($totalPages != 0 && $currentPage > $totalPages) {
         $currentPage = $totalPages;
     }
@@ -63,6 +64,9 @@
     $results1 = $query->fetch_all(MYSQLI_ASSOC);
     $resultsRealCount = $query->num_rows;
     $query->free();
+
+    /* One lookup for the page instead of one per row. */
+    Admin::primeAdminNames(array_column($results1, 'admin_steamid'));
 
     $url = e($_SERVER['REQUEST_URI']);
     if (str_contains($url, '&page')) {

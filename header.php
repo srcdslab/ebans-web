@@ -20,6 +20,9 @@
 <html lang="en">
 <head>
     <title>EntWatch Bans</title>
+<?php if (IsAdminLoggedIn()) { ?>
+    <meta name="csrf-token" content="<?php echo e(csrfToken()); ?>">
+<?php } ?>
     <link rel="icon" href="./images/favicon.ico" />
     <link rel="stylesheet" href="./css/style.css">
     <link href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,700,700i" rel="stylesheet" referrerpolicy="origin">

@@ -31,6 +31,16 @@ this panel can read them.
 The script never modifies the EntWatch 3 tables, so it can be re-run and the old
 tables can be kept around for as long as you may want to roll back.
 
+# Upgrade note: full-access groups
+
+The "full access" tier -- delete an eban, read the Web Logs, manage an eban
+somebody else issued -- used to be a hardcoded list of group IDs (`1, 3, 4`)
+that no configuration setting could reach. It now comes from `GID_ADMIN`.
+
+Before upgrading, check which groups should hold that tier and list them in
+`GID_ADMIN`. If your admins were previously in `GID_STAFF`, moving them to
+`GID_ADMIN` is what preserves their access.
+
 # Features
 - Displays EntWatch database records on a website.
 - Supports desktop and mobile layouts.

@@ -7,14 +7,42 @@ on:
       - master
     tags:
       - '*'
+  # No branch filter: a pull request has to be linted whatever it targets.
+  # With `branches: [main, master]` a PR stacked on another branch never ran
+  # any check at all, which is the situation this workflow exists to prevent.
   pull_request:
-    branches:
-      - main
-      - master
+
+permissions:
+  contents: read
 
 jobs:
-  lint:
-    name: Lint
+  syntax:
+    name: Syntax (PHP ${{ matrix.php-version }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.3", "8.4", "8.5"]
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: bcmath, mbstring, mysqli
+          coverage: none
+
+      # Blocking: a parse error must never reach the default branch.
+      # `git ls-files` keeps this to tracked sources only.
+      - name: PHP syntax check
+        run: |
+          set -euo pipefail
+          git ls-files -z '*.php' | xargs -0 -r -n1 -P4 php -l
+
+  style:
+    name: Coding style (advisory)
     runs-on: ubuntu-24.04
     steps:
       - name: Code Checkout
@@ -24,18 +52,20 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: bcmath, curl, gd, mbstring, mysql, openssl, pdo, tokenizer, xml, zip
-          tools: composer:v2, php-cs-fixer
+          extensions: bcmath, mbstring, mysqli
+          tools: php-cs-fixer
           coverage: none
 
+      # Advisory only: the codebase does not follow a fixer ruleset yet, so a
+      # blocking check would fail on every file. Adopting one is a separate
+      # decision -- until then the diff is surfaced as an annotation.
       - name: PHP CS Fixer
-        run: |
-          php-cs-fixer fix --dry-run --diff --verbose .
+        id: php-cs-fixer
         continue-on-error: true
+        env:
+          PHP_CS_FIXER_IGNORE_ENV: 1
+        run: php-cs-fixer fix --dry-run --diff --verbose .
 
-      - name: Check PHP CS Fixer result
-        run: |
-          if [ ${{ steps.php-cs-fixer.outcome }} == 'failure' ]; then
-            echo "PHP CS Fixer found issues. Please review the output above."
-            exit 1
-          fi
+      - name: Report PHP CS Fixer result
+        if: always() && steps.php-cs-fixer.outcome == 'failure'
+        run: echo "::warning title=PHP CS Fixer::Coding style issues were reported. See the 'PHP CS Fixer' step for the diff."

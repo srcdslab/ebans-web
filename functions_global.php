@@ -23,6 +23,48 @@
         );
     }
 
+    /* How long a login lasts.
+       This used to be `time() * 30` -- a multiplication where an addition was
+       meant, which put the expiry in the year 3670:
+
+           php > echo date("Y-m-d", time() * 30);
+           3670-08-10
+
+       so the credential never expired and there was no way to age it out. */
+    define('LOGIN_COOKIE_LIFETIME', 12 * 60 * 60);
+
+    /* One place that decides how the login cookies are attributed, so
+       login-process.php, logout.php and header.php cannot drift apart.
+
+       `secure` stays on unconditionally: the panel is meant to be served over
+       HTTPS, and quietly downgrading it here would hand the credential to
+       anyone on the wire. See the Requirements section in README.md.
+
+       `samesite` was absent, which left the browser default of Lax. Lax is
+       still sent on top-level GET navigation -- which is exactly what the
+       write endpoints are -- so it is set explicitly here and tightened when
+       those endpoints move to POST. */
+    function loginCookieOptions(int $expires): array {
+        return [
+            'expires'  => $expires,
+            'path'     => '/',
+            'domain'   => $_SERVER['SERVER_NAME'] ?? '',
+            'secure'   => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ];
+    }
+
+    function setLoginCookie(string $name, string $value): bool {
+        return setcookie($name, $value, loginCookieOptions(time() + LOGIN_COOKIE_LIFETIME));
+    }
+
+    function clearLoginCookies(): void {
+        foreach (['steamID', 'secret_key', 'aid'] as $name) {
+            setcookie($name, '', loginCookieOptions(time() - 3600));
+        }
+    }
+
     class Utility {
         public static function sanitizeInput($input) {
             $replacements = array("'", '"', "\\", ";", "`", "--", "#", "=", ">", "<", "&", "%", "|", "^", "~", "(", ")");

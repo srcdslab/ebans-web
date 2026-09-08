@@ -10,6 +10,9 @@ https://github.com/srcdslab/sm-plugin-entwatch-4
   (`bcmath` is used for the 64-bit SteamID arithmetic in `steam.php`).
 - MySQL 5.7 / MariaDB 10.3 or newer.
 - A SourceBans++ database for admin login.
+- **HTTPS.** The login cookies are issued with the `Secure` attribute, so a
+  browser will not store them over plain HTTP and signing in silently does
+  nothing.
 
 # Installation
 1. Copy the contents of this repository to your web hosting. The panel runs from

@@ -16,10 +16,8 @@
         $steamID64 = $steam->SteamID_To_SteamID64($GLOBALS['steamID']);
         $adminURL = "https://steamcommunity.com/profiles/$steamID64";
     } else {
-		setcookie("steamID", "", 1, "/", $_SERVER['SERVER_NAME'], true, true);
-		setcookie("secret_key", "", 1, "/", $_SERVER['SERVER_NAME'], true, true);
-		setcookie("aid", "", 1, "/", $_SERVER['SERVER_NAME'], true, true);
-	}
+        clearLoginCookies();
+    }
 ?>
 
 <!DOCTYPE html>

@@ -56,8 +56,8 @@
 
     $admin = new Admin();
     if ($admin->IsLoginValid($steamID32, $secret_key, true)) {
-        setcookie('steamID', $steamID32, (time() * 30), "/", $_SERVER['SERVER_NAME'], true, true);
-        setcookie("secret_key", $secret_key, (time() * 30), "/", $_SERVER['SERVER_NAME'], true, true);
+        setLoginCookie('steamID', $steamID32);
+        setLoginCookie('secret_key', $secret_key);
 
         // Create an unique cookie based on sbpp aid for each user
         // Aid is the safer option to use as a cookie since it does not have any personal information
@@ -72,7 +72,7 @@
         $row = $queryResult->fetch_assoc();
         $aid = $row['aid'];
 
-        setcookie("aid", $aid, (time() * 30), "/", $_SERVER['SERVER_NAME'], true, true);
+        setLoginCookie('aid', (string) $aid);
     }
 
     $server_host_url = (!empty($_SERVER['HTTPS']) ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];

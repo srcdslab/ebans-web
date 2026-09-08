@@ -71,7 +71,7 @@
 
                 <div class="input-group">
                     <label for="name">Player Name</label>
-                    <input id="playerName" type="text" class="input Eban-input" max="32" value=<?php echo "\"$val\""; ?>>
+                    <input id="playerName" type="text" class="input Eban-input" max="32" value="<?php echo e($val); ?>">
                 </div>
 
                 <?php
@@ -86,7 +86,7 @@
                     <?php if (empty($val)) { ?>
                         <input id="playerSteamID" type="text" class="input Eban-input">
                     <?php } else { ?>
-                        <input id="playerSteamID" type="text" class="input Eban-input" value=<?php echo "\"$val\""; ?> title="The SteamID of an existing eban cannot be changed. Unban this eban and add a new one against the correct SteamID instead." disabled>
+                        <input id="playerSteamID" type="text" class="input Eban-input" value="<?php echo e($val); ?>" title="The SteamID of an existing eban cannot be changed. Unban this eban and add a new one against the correct SteamID instead." disabled>
                     <?php } ?>
                 </div>
 
@@ -99,7 +99,7 @@
 
                 <div class="input-group">
                     <label for="reason">Reason</label>
-                    <input id="reason" type="text" class="input Eban-input" max="120" value=<?php echo "\"$val\""; ?>>
+                    <input id="reason" type="text" class="input Eban-input" max="120" value="<?php echo e($val); ?>">
                 </div>
 
                 <?php if ($add == true) { ?>
@@ -124,7 +124,7 @@
                 <div class="input-group">
                     <label for="length"> Duration </label>
                     <p style="font-style: italic; color: var(--theme-text_light); margin-top: 5px;">Enter 0 minutes for a permanent ban</p>
-                    <input id="length-edit" type="text" class="input Eban-input" value=<?php echo "\"$val\""; ?>style="width: 110px; display: inline-block;">
+                    <input id="length-edit" type="text" class="input Eban-input" value="<?php echo e($val); ?>" style="width: 110px; display: inline-block;">
                     <?php GetEbanLengthTypes(); ?>
                 </div>
                 <?php } ?>
@@ -136,7 +136,7 @@
                     $oldid = "";
                 }
 
-                echo "<button class='button button-success Eban-form-button' style='width: 80%; margin-left: 10%;' data-oldid='$oldid' id='$buttonID' type='submit'> $buttonTextValidate</button>";
+                echo "<button class='button button-success Eban-form-button' style='width: 80%; margin-left: 10%;' data-oldid='" . e($oldid) . "' id='" . e($buttonID) . "' type='submit'> " . e($buttonTextValidate) . "</button>";
                 ?>
             </div>
         </div>

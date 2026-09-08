@@ -3,25 +3,13 @@
     include('header.php');
 
     if (!IsAdminLoggedIn()) {
-        echo "<div class='container'>
-        <div class='error-box'>
-        <p><i class='fa-solid fa-triangle-exclamation'></i> You do not have access to this page.</p>
-        </div>
-        </div>
-        </div>";
-        die();
+        renderAccessDenied();
     }
-    
+
     $admin = new Admin();
     $admin->UpdateAdminInfo($_COOKIE['steamID']);
     if (!$admin->DoesHaveFullAccess()) {
-        echo "<div class='container'>
-        <div class='error-box'>
-        <p><i class='fa-solid fa-triangle-exclamation'></i> You do not have access to this page.</p>
-        </div>
-        </div>
-        </div>";
-        die();
+        renderAccessDenied();
     }
 
     if (isset($_GET['page'])) {
@@ -54,8 +42,6 @@
     echo "<script>setActive(4); setModalSearch(\"web\");</script>";
 ?>
 
-<!DOCTYPE html>
-<html>
     <?php
     $query = $GLOBALS['DB']->query($sql . "ORDER BY time_stamp DESC LIMIT $resultsStart, $resultsPerPage");
     $results1 = $query->fetch_all(MYSQLI_ASSOC);
@@ -164,8 +150,6 @@
         </div>
     </div>
 </div>
-<?php include('footer.php'); ?>
-</div>
 <script>
     $(function() {
         $('.select_').on('change', function() {
@@ -176,3 +160,4 @@
         });
     });
 </script>
+<?php include('footer.php'); ?>

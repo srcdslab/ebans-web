@@ -22,6 +22,8 @@
 	}
 ?>
 
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <title>EntWatch Bans</title>
     <link rel="icon" href="./images/favicon.ico" />
@@ -101,7 +103,7 @@
         <?php
 			echo '<a class="logo" href="'. $GLOBALS['SERVER_FORUM_URL'] .'">'
         ?>
-		<img src="./images/ebans.png" alt="logo"></a>
+		<img src="./images/banner.png" alt="logo"></a>
         <div class="search_input">
             <form method="GET" action="index.php">
                 <input type='text' style='display: none;' name='all' value='true'>

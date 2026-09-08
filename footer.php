@@ -1,5 +1,3 @@
-</body>
-</html>
 <footer class="footer">
     <div class="layout_container flex flex-jc:space-between flex-ai:center">
         <div class="flex flex-fd:column text:left">
@@ -13,4 +11,7 @@
         </div>
     </div>
 </footer>
+</div><!-- /.body_content -->
+</body>
+</html>
 

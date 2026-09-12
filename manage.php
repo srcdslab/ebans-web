@@ -171,8 +171,7 @@
                     type: 'POST',
                     data: { steamid: steamID },
                     success: function(response) {
-                        const result = JSON.parse(response);
-                        callback(result);
+                        callback(response);
                     },
                     error: function() {
                         alert('Error verifying SteamID.');

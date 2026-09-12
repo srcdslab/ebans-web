@@ -92,7 +92,7 @@
                 ?>
 
                 <div class="input-group">
-                    <label for="name">Player Name</label>
+                    <label for="playerName">Player Name</label>
                     <input id="playerName" type="text" class="input Eban-input" max="32" value="<?php echo e($val); ?>">
                 </div>
 
@@ -104,7 +104,7 @@
                 ?>
 
                 <div class="input-group">
-                    <label for="steamid">Steam ID</label>
+                    <label for="playerSteamID">Steam ID</label>
                     <?php if (empty($val)) { ?>
                         <input id="playerSteamID" type="text" class="input Eban-input">
                     <?php } else { ?>
@@ -126,7 +126,7 @@
 
                 <?php if ($add == true) { ?>
                 <div class="input-group">
-                    <label for="length">Duration</label>
+                    <label for="add-select">Duration</label>
                     <?php GetEbanLengths(); ?>
                 </div>
                 <?php } ?>
@@ -144,7 +144,7 @@
                     }
                 ?>
                 <div class="input-group">
-                    <label for="length"> Duration </label>
+                    <label for="length-edit"> Duration </label>
                     <p style="font-style: italic; color: var(--theme-text_light); margin-top: 5px;">Enter 0 minutes for a permanent ban</p>
                     <input id="length-edit" type="text" class="input Eban-input" value="<?php echo e($val); ?>" style="width: 110px; display: inline-block;">
                     <?php GetEbanLengthTypes(); ?>

@@ -58,11 +58,11 @@
                 <input id='hideInput' type='text' style='display: none;' name='' value='true'>
                 <div class='input-group'>
                     <label for='s'>Input</label>
-                    <input class='input search-modal-input' type='text' name='s' required>
+                    <input id='s' class='input search-modal-input' type='text' name='s' required>
                 </div>
                 <div class='input-group'>
                     <label for='m'>Method</label>
-                    <select name='m' class='select search-modal-input'>
+                    <select id='m' name='m' class='select search-modal-input'>
                         <option value='1'>Player SteamID</option>
                         <option value='2'>Player Name</option>
                         <option value='4'>Admin Name</option>

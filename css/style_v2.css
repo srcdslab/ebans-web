@@ -1036,7 +1036,7 @@ input[disabled] {
 .Eban-action-window {
     display: none;
     position: fixed;
-    z-index: 1;
+    z-index: 1100;
     left: 0;
     top: 1;
     height: auto;
@@ -1045,9 +1045,14 @@ input[disabled] {
     margin-left: 35%;
     overflow: hidden;
     box-shadow: 0 5px 8px 0 rgba(0, 0, 0, 0.2), 0 7px 20px 0 rgba(0, 0, 0, 0.17);
-    animation: modalopen 1s;
+    animation: modalopen 0.3s;
     background-color: var(--theme-area-background);
-    transition: all 0.4s ease 0s;
+    opacity: 1;
+    transition: opacity 0.4s ease 0s;
+}
+
+.Eban-action-window.fade-out {
+    opacity: 0;
 }
 
 .Eban-action-window .header {

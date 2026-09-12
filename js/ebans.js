@@ -319,12 +319,15 @@ function showEbanWindowInfo(type, playerName = "", playerSteamID = "", reason = 
 
     $('.Eban-action-window .info .Eban_details').html(html);
 
-    $('.Eban-action-window').css('display', 'block');
+    $('.Eban-action-window').removeClass('fade-out').css('display', 'block');
 
-    let sec = 3;
-    setTimeout(CloseWindow, (sec * 1000)); 
+    let sec = 6;
+    setTimeout(CloseWindow, (sec * 1000));
 }
 
 function CloseWindow() {
-    $('.Eban-action-window').css('display', 'none');
+    $('.Eban-action-window').addClass('fade-out');
+    setTimeout(function() {
+        $('.Eban-action-window').css('display', 'none');
+    }, 400);
 }

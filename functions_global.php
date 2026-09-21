@@ -956,9 +956,8 @@
         echo "<span>" . e($clientName) . "</span>";
         echo "</li>";
 
-        $steam = new Steam();
-        $clientSteamID3 = $steam->SteamID_To_SteamID3($clientSteamID);
-        $clientSteamID64 = $steam->SteamID_To_SteamID64($clientSteamID);
+        $clientSteamID3 = Steam::SteamID_To_SteamID3($clientSteamID);
+        $clientSteamID64 = Steam::SteamID_To_SteamID64($clientSteamID);
         echo "<li>";
         echo "<span><i class='fab fa-steam-symbol'></i> Steam ID</span>";
         echo "<span>" . e($clientSteamID) . "</span>";
